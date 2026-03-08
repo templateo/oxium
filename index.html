@@ -110,7 +110,6 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:16p
 </head>
 <body>
 <div id="app">
-
 <header>
   <div class="brand">
     <div class="brand-name">OX<span>I</span>UM</div>
@@ -120,9 +119,7 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:16p
     <span class="header-badge" id="hdr-timer"></span>
   </div>
 </header>
-
 <div class="sep"></div>
-
 <main>
   <div class="left">
     <div class="email-box">
@@ -138,11 +135,11 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:16p
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg>
           Refresh
         </button>
-        <button class="btn" id="custom-btn">
+        <button class="btn" id="new-btn" disabled>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
           New Address
         </button>
-        <button class="btn danger" id="delete-btn" disabled>
+        <button class="btn danger" id="nuke-btn" disabled>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
           Nuke
         </button>
@@ -165,7 +162,6 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:16p
       </div>
     </div>
   </div>
-
   <div class="right">
     <div class="viewer-empty" id="viewer-empty">
       <svg class="viewer-empty-icon" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.6"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8l9 6 9-6z"/><path d="M3 8l9-4 9 4"/></svg>
@@ -195,208 +191,334 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:16p
     </div>
   </div>
 </main>
-
 <div class="sep"></div>
-
 <footer>
   <div class="ft-brand">Oxium</div>
   <div class="ft-links">
-    <a href="https://www.guerrillamail.com/GuerrillaMailAPI.html" class="ft-link" target="_blank">API Docs</a>
-    <a href="#" class="ft-link">Privacy</a>
+    <a href="https://www.1secmail.com/api/" class="ft-link" target="_blank">API Docs</a>
   </div>
-  <div class="ft-meta">Powered by Guerrilla Mail</div>
+  <div class="ft-meta">Powered by 1secmail</div>
 </footer>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-/* ═══════════════════════════════════════════════
-   OXIUM — Powered by GuerrillaMail API
-   Simple GET-only API, no auth headers, no CORS.
-═══════════════════════════════════════════════ */
-const API = 'https://api.guerrillamail.com/ajax.php';
+/* ══════════════════════════════════════════════
+   OXIUM — Powered by 1secmail.com
+   Pure GET requests, no auth, no CORS issues.
+   
+   API endpoints:
+   GET /api/v1/?action=genRandomMailbox
+   GET /api/v1/?action=getMessages&login=X&domain=Y
+   GET /api/v1/?action=readMessage&login=X&domain=Y&id=Z
+   GET /api/v1/?action=getDomainList
+══════════════════════════════════════════════ */
+
+const API = 'https://www.1secmail.com/api/v1/';
 
 let state = {
-  email: null, sid: null, seq: 0,
-  messages: [], activeId: null,
-  pollInterval: null, expiryTimer: null,
+  login: null,
+  domain: null,
+  messages: [],   // [{id, from, subject, date, read, body?}]
+  activeId: null,
+  pollInterval: null,
+  expiryTimer: null,
   refreshing: false,
 };
 
+/* ── utils ── */
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function timeAgo(ts){
-  const diff = Math.floor(Date.now()/1000 - ts);
-  if(diff<60) return diff+'s ago';
-  if(diff<3600) return Math.floor(diff/60)+'m ago';
-  if(diff<86400) return Math.floor(diff/3600)+'h ago';
-  return new Date(ts*1000).toLocaleDateString();
+function timeAgo(dateStr){
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if(diff < 60) return diff + 's ago';
+  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return new Date(dateStr).toLocaleDateString();
 }
-function formatDate(ts){ return new Date(ts*1000).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
 
-let toastTimer;
-function toast(msg,dur=2400){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),dur); }
+function formatDate(dateStr){
+  return new Date(dateStr).toLocaleString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
 
-function setStatus(type,msg){ document.getElementById('status-dot').className='status-dot'+(type==='live'?' live':type==='error'?' error':''); document.getElementById('status-text').textContent=msg; }
+let _tt;
+function toast(msg, dur=2400){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function setStatus(type, msg){
+  document.getElementById('status-dot').className = 'status-dot' + (type==='live' ? ' live' : type==='error' ? ' error' : '');
+  document.getElementById('status-text').textContent = msg;
+}
+
+function setBtns(enabled){
+  ['refresh-btn','new-btn','nuke-btn'].forEach(id => document.getElementById(id).disabled = !enabled);
+}
 
 function startExpiryTimer(ms){
   if(state.expiryTimer) clearInterval(state.expiryTimer);
-  const end = Date.now()+ms;
+  const end = Date.now() + ms;
   const hdr = document.getElementById('hdr-timer');
-  function tick(){ const r=Math.max(0,end-Date.now()); const m=Math.floor(r/60000),s=Math.floor((r%60000)/1000); hdr.textContent=`Expires ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; if(!r){clearInterval(state.expiryTimer);hdr.textContent='Expired';} }
-  tick(); state.expiryTimer=setInterval(tick,1000);
-}
-
-/* API call — credentials:include sends the PHPSESSID session cookie GuerrillaMail needs */
-async function gCall(params){
-  const qs = new URLSearchParams({ip:'127.0.0.1', agent:'Mozilla/5.0', ...params});
-  const ctrl = new AbortController();
-  const t = setTimeout(()=>ctrl.abort(), 10000);
-  try {
-    const r = await fetch(`${API}?${qs}`, {credentials:'include', signal:ctrl.signal});
-    clearTimeout(t);
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return r.json();
-  } catch(e) {
-    clearTimeout(t);
-    if(e.name==='AbortError') throw new Error('Request timed out (10s)');
-    throw e;
+  function tick(){
+    const r = Math.max(0, end - Date.now());
+    const m = Math.floor(r/60000), s = Math.floor((r%60000)/1000);
+    hdr.textContent = `Expires ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if(!r){ clearInterval(state.expiryTimer); hdr.textContent = 'Expired'; }
   }
+  tick(); state.expiryTimer = setInterval(tick, 1000);
 }
 
-async function initSession(){
-  setStatus('','Connecting…');
+/* ── API ── */
+async function apiGet(params){
+  const url = API + '?' + new URLSearchParams(params);
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+/* ── INIT: generate a random mailbox ── */
+async function initMailbox(){
   const disp = document.getElementById('email-display');
-  disp.textContent='Generating…'; disp.classList.add('loading');
-  document.getElementById('refresh-btn').disabled=true;
-  document.getElementById('delete-btn').disabled=true;
+  disp.textContent = 'Generating…'; disp.classList.add('loading');
+  setStatus('', 'Generating address…');
+  setBtns(false);
+  state.messages = []; state.activeId = null;
+  stopPolling();
+  if(state.expiryTimer) clearInterval(state.expiryTimer);
+  document.getElementById('hdr-timer').textContent = '';
 
   try {
-    const data = await gCall({f:'get_email_address', lang:'en'});
-    state.email = data.email_addr;
-    state.sid = data.sid_token;
-    state.seq = 0; state.messages = []; state.activeId = null;
+    // Returns array like ["user@1secmail.com"]
+    const data = await apiGet({ action: 'genRandomMailbox', count: 1 });
+    if(!Array.isArray(data) || !data[0]) throw new Error('Bad response: ' + JSON.stringify(data));
 
-    disp.textContent = state.email; disp.classList.remove('loading');
-    document.getElementById('copy-btn').onclick = ()=>navigator.clipboard.writeText(state.email).then(()=>toast('Copied!'));
-    document.getElementById('refresh-btn').disabled=false;
-    document.getElementById('delete-btn').disabled=false;
-    setStatus('live','Receiving mail · Auto-refresh every 15s');
-    startExpiryTimer(60*60*1000);
-    renderInbox([]); showViewerEmpty(); startPolling();
+    const email = data[0];
+    const [login, domain] = email.split('@');
+    state.login = login;
+    state.domain = domain;
+
+    disp.textContent = email; disp.classList.remove('loading');
+    document.getElementById('copy-btn').onclick = () =>
+      navigator.clipboard.writeText(email).then(() => toast('Copied!'));
+
+    setBtns(true);
+    setStatus('live', 'Receiving mail · Auto-refresh every 15s');
+    startExpiryTimer(2 * 24 * 60 * 60 * 1000); // 1secmail keeps for 2 days
+    renderInbox([]);
+    showViewerEmpty();
+    startPolling();
+
   } catch(e) {
-    disp.textContent='Failed'; disp.classList.remove('loading');
-    setStatus('error','Connection failed: '+e.message);
-    toast('Could not reach Guerrilla Mail API. Check console.',5000);
-    console.error('GuerrillaMail error:', e);
+    disp.textContent = 'Failed'; disp.classList.remove('loading');
+    setStatus('error', e.message);
+    toast('Error: ' + e.message, 5000);
+    document.getElementById('new-btn').disabled = false;
+    console.error(e);
   }
 }
 
+/* ── FETCH INBOX ── */
 async function fetchMessages(){
-  if(!state.sid) return;
+  if(!state.login) return;
   try {
-    const data = await gCall({f:'get_email_list', offset:0, seq:state.seq, sid_token:state.sid});
-    const list = data.list||[];
+    const data = await apiGet({ action: 'getMessages', login: state.login, domain: state.domain });
+    if(!Array.isArray(data)) throw new Error('Unexpected response');
+
     const prev = state.messages.length;
-    const existing = Object.fromEntries(state.messages.map(m=>[m.id,m]));
-    state.messages = list.map(m=>({
-      id: m.mail_id, from: m.mail_from, subject: m.mail_subject,
-      excerpt: m.mail_excerpt, ts: parseInt(m.mail_timestamp),
-      read: m.mail_read==='1'||m.mail_read===1,
-      full: existing[m.mail_id]?.full||null,
+    // Merge — preserve body cache
+    const cached = Object.fromEntries(state.messages.map(m => [m.id, m]));
+    state.messages = data.map(m => ({
+      id: m.id,
+      from: m.from,
+      subject: m.subject,
+      date: m.date,
+      read: cached[m.id]?.read || false,
+      body: cached[m.id]?.body || null,
+      htmlBody: cached[m.id]?.htmlBody || null,
+      attachments: cached[m.id]?.attachments || [],
     }));
+
     renderInbox(state.messages);
     const diff = state.messages.length - prev;
-    if(diff>0 && prev>0) toast(`${diff} new message${diff>1?'s':''}!`);
-  } catch(e){ console.warn('Poll error:',e.message); }
+    if(diff > 0 && prev > 0) toast(`${diff} new message${diff > 1 ? 's' : ''}!`);
+  } catch(e) {
+    console.warn('Poll failed:', e.message);
+  }
 }
 
+/* ── RENDER INBOX ── */
 function renderInbox(msgs){
   const list = document.getElementById('inbox-list');
-  document.getElementById('inbox-count').textContent = msgs.length+' message'+(msgs.length!==1?'s':'');
-  if(!msgs.length){ list.innerHTML=''; list.appendChild(document.getElementById('empty-state')); return; }
-  const sorted = [...msgs].sort((a,b)=>b.ts-a.ts);
-  list.innerHTML = sorted.map(m=>`
-    <div class="msg-item${m.read?'':' unread'}${state.activeId==m.id?' active':''}" onclick="openMessage(${m.id})" data-id="${m.id}">
-      <div class="msg-from"><span>${escHtml(m.from)}</span><span class="msg-time">${timeAgo(m.ts)}</span></div>
-      <div class="msg-subject">${escHtml(m.subject||'(no subject)')}</div>
-      <div class="msg-preview">${escHtml(m.excerpt||'')}</div>
-    </div>`).join('');
+  document.getElementById('inbox-count').textContent = msgs.length + ' message' + (msgs.length !== 1 ? 's' : '');
+  if(!msgs.length){
+    list.innerHTML = '';
+    list.appendChild(document.getElementById('empty-state'));
+    return;
+  }
+  const sorted = [...msgs].sort((a,b) => new Date(b.date) - new Date(a.date));
+  list.innerHTML = sorted.map(m => `
+    <div class="msg-item${m.read ? '' : ' unread'}${state.activeId === m.id ? ' active' : ''}"
+         onclick="openMessage(${m.id})" data-id="${m.id}">
+      <div class="msg-from">
+        <span>${escHtml(m.from)}</span>
+        <span class="msg-time">${timeAgo(m.date)}</span>
+      </div>
+      <div class="msg-subject">${escHtml(m.subject || '(no subject)')}</div>
+    </div>
+  `).join('');
 }
 
+/* ── OPEN MESSAGE ── */
 async function openMessage(id){
   state.activeId = id;
-  document.querySelectorAll('.msg-item').forEach(el=>el.classList.toggle('active',parseInt(el.dataset.id)===id));
-  document.getElementById('viewer-content').style.display='flex';
-  document.getElementById('viewer-empty').style.display='none';
+  document.querySelectorAll('.msg-item').forEach(el =>
+    el.classList.toggle('active', parseInt(el.dataset.id) === id));
+
+  document.getElementById('viewer-content').style.display = 'flex';
+  document.getElementById('viewer-empty').style.display = 'none';
+
   const bodyEl = document.getElementById('viewer-body');
-  bodyEl.innerHTML='<div class="viewer-text" style="opacity:.4">Loading…</div>';
-  const local = state.messages.find(m=>m.id==id);
+  bodyEl.innerHTML = '<div class="viewer-text" style="opacity:.4">Loading…</div>';
+
+  const local = state.messages.find(m => m.id === id);
+
   try {
-    let msg = local?.full;
-    if(!msg){ const d=await gCall({f:'fetch_email',email_id:id,sid_token:state.sid}); msg=d; if(local) local.full=d; }
-    document.getElementById('viewer-subject').textContent=msg.mail_subject||'(no subject)';
-    document.getElementById('viewer-from').textContent=msg.mail_from||'Unknown';
-    document.getElementById('viewer-to').textContent=state.email||'';
-    document.getElementById('viewer-date').textContent=formatDate(parseInt(msg.mail_timestamp));
-    bodyEl.innerHTML='';
-    const plain=msg.mail_body||'';
-    const otp=extractOTP(plain);
-    if(otp){ const b=document.createElement('div'); b.className='otp-banner'; b.innerHTML=`<span class="otp-label">// Code detected</span><span class="otp-code">${escHtml(otp)}</span><button class="btn otp-copy" onclick="navigator.clipboard.writeText('${otp.replace(/'/g,"\\'")}').then(()=>toast('Copied!'))"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg> Copy</button>`; bodyEl.appendChild(b); }
-    if(plain.trim().startsWith('<')){
-      const blob=new Blob([plain],{type:'text/html'});
-      const url=URL.createObjectURL(blob);
-      const iframe=document.createElement('iframe');
-      iframe.src=url; iframe.style.cssText='width:100%;border:none;min-height:400px;display:block;background:#fff';
-      iframe.onload=()=>{ try{iframe.style.height=(iframe.contentDocument.documentElement.scrollHeight+20)+'px';}catch{} URL.revokeObjectURL(url); };
+    let msg;
+    if(local?.body !== null) {
+      // already cached
+      msg = local;
+    } else {
+      const data = await apiGet({ action: 'readMessage', login: state.login, domain: state.domain, id });
+      // cache on local state
+      if(local){
+        local.body = data.body || data.textBody || '';
+        local.htmlBody = data.htmlBody || '';
+        local.attachments = data.attachments || [];
+        msg = local;
+      } else {
+        msg = { from: data.from, subject: data.subject, date: data.date,
+                body: data.body || data.textBody || '', htmlBody: data.htmlBody || '', attachments: data.attachments || [] };
+      }
+    }
+
+    document.getElementById('viewer-subject').textContent = msg.subject || '(no subject)';
+    document.getElementById('viewer-from').textContent = msg.from || 'Unknown';
+    document.getElementById('viewer-to').textContent = `${state.login}@${state.domain}`;
+    document.getElementById('viewer-date').textContent = formatDate(msg.date);
+
+    bodyEl.innerHTML = '';
+
+    // OTP detection
+    const plain = msg.body || '';
+    const otp = extractOTP(plain);
+    if(otp){
+      const b = document.createElement('div');
+      b.className = 'otp-banner';
+      b.innerHTML = `
+        <span class="otp-label">// Code detected</span>
+        <span class="otp-code">${escHtml(otp)}</span>
+        <button class="btn otp-copy" onclick="navigator.clipboard.writeText('${otp.replace(/'/g,"\\'")}').then(()=>toast('Copied!'))">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
+          Copy
+        </button>`;
+      bodyEl.appendChild(b);
+    }
+
+    // Render body
+    const htmlSrc = msg.htmlBody || '';
+    if(htmlSrc.trim()){
+      const blob = new Blob([htmlSrc], {type:'text/html'});
+      const blobUrl = URL.createObjectURL(blob);
+      const iframe = document.createElement('iframe');
+      iframe.src = blobUrl;
+      iframe.style.cssText = 'width:100%;border:none;min-height:400px;display:block;background:#fff';
+      iframe.onload = () => {
+        try{ iframe.style.height = (iframe.contentDocument.documentElement.scrollHeight + 20) + 'px'; }catch{}
+        URL.revokeObjectURL(blobUrl);
+      };
       bodyEl.appendChild(iframe);
     } else {
-      const pre=document.createElement('div'); pre.className='viewer-text'; pre.textContent=plain||'(empty)'; bodyEl.appendChild(pre);
+      const pre = document.createElement('div');
+      pre.className = 'viewer-text';
+      pre.textContent = plain || '(empty message)';
+      bodyEl.appendChild(pre);
     }
-    if(local) local.read=true;
-    document.querySelectorAll('.msg-item').forEach(el=>{ if(parseInt(el.dataset.id)===id) el.classList.remove('unread'); });
-    document.getElementById('del-msg-btn').onclick=()=>deleteMessage(id);
-    document.getElementById('raw-btn').onclick=()=>{ const w=window.open('','_blank'); w.document.write('<pre style="background:#111;color:#ccc;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap">'+escHtml(JSON.stringify(msg,null,2))+'</pre>'); };
-  } catch(e){ bodyEl.innerHTML=`<div class="viewer-text" style="color:var(--red)">Failed: ${escHtml(e.message)}</div>`; }
+
+    if(local) local.read = true;
+    document.querySelectorAll('.msg-item').forEach(el => {
+      if(parseInt(el.dataset.id) === id) el.classList.remove('unread');
+    });
+
+    document.getElementById('del-msg-btn').onclick = () => deleteMessage(id);
+    document.getElementById('raw-btn').onclick = () => {
+      const w = window.open('', '_blank');
+      w.document.write('<pre style="background:#111;color:#ccc;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap">' + escHtml(JSON.stringify(msg, null, 2)) + '</pre>');
+    };
+
+  } catch(e) {
+    bodyEl.innerHTML = `<div class="viewer-text" style="color:var(--red)">Failed to load: ${escHtml(e.message)}</div>`;
+  }
 }
 
+/* ── DELETE MESSAGE ── */
 async function deleteMessage(id){
-  try { await gCall({f:'del_email',email_ids:JSON.stringify([id]),sid_token:state.sid}); state.messages=state.messages.filter(m=>m.id!=id); state.activeId=null; renderInbox(state.messages); showViewerEmpty(); toast('Deleted'); }
-  catch(e){ toast('Delete failed: '+e.message); }
+  // 1secmail doesn't have a delete API — just remove from local state
+  state.messages = state.messages.filter(m => m.id !== id);
+  state.activeId = null;
+  renderInbox(state.messages);
+  showViewerEmpty();
+  toast('Removed from view');
 }
 
+/* ── OTP ── */
 function extractOTP(text){
   if(!text) return null;
-  for(const p of [/\b(\d{6})\b/,/\b(\d{4})\b/,/\b(\d{5})\b/,/\b(\d{7,8})\b/,/(?:code|otp|verification)[:\s]+([A-Z0-9]{4,8})/i]){
-    const m=text.match(p); if(m) return m[1]||m[0].replace(/\D/g,'');
+  for(const p of [/\b(\d{6})\b/, /\b(\d{4})\b/, /\b(\d{5})\b/, /\b(\d{7,8})\b/, /(?:code|otp|verification)[:\s]+([A-Z0-9]{4,8})/i]){
+    const m = text.match(p); if(m) return m[1] || m[0].replace(/\D/g,'');
   }
   return null;
 }
 
-function showViewerEmpty(){ document.getElementById('viewer-content').style.display='none'; document.getElementById('viewer-empty').style.display='flex'; }
-function startPolling(){ stopPolling(); fetchMessages(); state.pollInterval=setInterval(fetchMessages,15000); }
-function stopPolling(){ if(state.pollInterval){clearInterval(state.pollInterval);state.pollInterval=null;} }
-
-async function manualRefresh(){
-  if(state.refreshing) return; state.refreshing=true;
-  const btn=document.getElementById('refresh-btn');
-  btn.innerHTML='<svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refreshing…'; btn.disabled=true;
-  try{ await fetchMessages(); toast('Refreshed'); }catch(e){ toast('Failed'); }
-  btn.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refresh'; btn.disabled=false; state.refreshing=false;
+function showViewerEmpty(){
+  document.getElementById('viewer-content').style.display = 'none';
+  document.getElementById('viewer-empty').style.display = 'flex';
 }
 
-document.getElementById('refresh-btn').addEventListener('click', manualRefresh);
-document.getElementById('custom-btn').addEventListener('click', ()=>{ stopPolling(); if(state.expiryTimer)clearInterval(state.expiryTimer); initSession(); });
-document.getElementById('delete-btn').addEventListener('click', ()=>{
-  if(!confirm('Nuke this address?')) return;
-  stopPolling(); if(state.expiryTimer)clearInterval(state.expiryTimer);
-  state={...state,email:null,sid:null,messages:[],activeId:null};
-  document.getElementById('hdr-timer').textContent='';
-  setStatus('','Nuked…'); renderInbox([]); showViewerEmpty();
-  setTimeout(initSession, 400);
-});
+function startPolling(){
+  stopPolling();
+  fetchMessages();
+  state.pollInterval = setInterval(fetchMessages, 15000);
+}
+function stopPolling(){
+  if(state.pollInterval){ clearInterval(state.pollInterval); state.pollInterval = null; }
+}
 
-initSession();
+/* ── MANUAL REFRESH ── */
+async function manualRefresh(){
+  if(state.refreshing) return;
+  state.refreshing = true;
+  const btn = document.getElementById('refresh-btn');
+  btn.innerHTML = '<svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refreshing…';
+  btn.disabled = true;
+  try { await fetchMessages(); toast('Refreshed'); } catch(e) { toast('Failed: ' + e.message); }
+  btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refresh';
+  btn.disabled = false;
+  state.refreshing = false;
+}
+
+/* ── WIRE BUTTONS ── */
+document.getElementById('refresh-btn').addEventListener('click', manualRefresh);
+document.getElementById('new-btn').addEventListener('click', () => { toast('Generating new address…'); initMailbox(); });
+document.getElementById('nuke-btn').addEventListener('click', () => {
+  if(!confirm('Generate a new address? Current one will stop working.')) return;
+  initMailbox();
+});
+document.getElementById('copy-btn').onclick = () => toast('No address yet');
+
+/* ── GO ── */
+initMailbox();
 </script>
 </body>
 </html>
