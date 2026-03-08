@@ -1,0 +1,7 @@
+# netlify.toml
+# Routes /api/* → Netlify Function proxy → mail.tm
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/proxy/:splat"
+  status = 200
