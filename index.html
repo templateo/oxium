@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oxium — Disposable Mail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080808;--surface:#0f0f0f;--surface2:#141414;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#e8e8e8;--muted:#b0b0b0;--dim:rgba(255,255,255,0.18);
+  --white:#ffffff;--accent:#ffffff;
+  --green:rgba(120,220,140,0.85);--red:rgba(255,100,100,0.8);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.3);border-radius:2px}
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size:200px 200px;opacity:0.35;
+}
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+header{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 44px;
+  background:rgba(8,8,8,0.88);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.brand{display:flex;align-items:baseline;gap:10px;cursor:default;user-select:none}
+.brand-name{font-size:1.2rem;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;color:var(--white)}
+.brand-name span{color:var(--muted)}
+.brand-tag{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.1);padding:2px 7px}
+.header-right{display:flex;align-items:center;gap:14px}
+.header-badge{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.2)}
+.sep{width:100%;height:1.5px;background:repeating-linear-gradient(to right,rgba(255,255,255,.22) 0,rgba(255,255,255,.22) 4px,transparent 4px,transparent 12px);background-size:12px 1.5px;filter:drop-shadow(0 0 3px rgba(255,255,255,.1));animation:sepGo 2s linear infinite;flex-shrink:0}
+@keyframes sepGo{to{background-position:12px 0}}
+main{flex:1;display:grid;grid-template-columns:360px 1fr;min-height:0}
+.left{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
+.email-box{padding:28px 28px 24px}
+.email-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.email-address{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--surface);border:1px solid var(--border2);padding:12px 14px;margin-bottom:14px;
+}
+.email-text{font-family:'DM Mono',monospace;font-size:.8rem;color:var(--white);letter-spacing:.04em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.email-text.loading{color:var(--muted);animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:.4}50%{opacity:1}}
+.icon-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.35);padding:4px;display:flex;align-items:center;justify-content:center;transition:color .2s;flex-shrink:0}
+.icon-btn:hover{color:var(--white)}
+.icon-btn svg{width:14px;height:14px}
+.email-actions{display:flex;gap:8px}
+.btn{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+  font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text);background:none;border:1px solid var(--border2);padding:9px 12px;cursor:pointer;
+  transition:border-color .25s,background .25s,color .25s;white-space:nowrap;
+}
+.btn:hover{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.04);color:var(--white)}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btn svg{width:12px;height:12px;flex-shrink:0}
+.btn.primary{border-color:rgba(255,255,255,.25);color:var(--white)}
+.btn.danger{border-color:rgba(255,100,100,.3);color:rgba(255,120,120,.8)}
+.btn.danger:hover{border-color:rgba(255,100,100,.6);background:rgba(255,60,60,.06);color:var(--red)}
+.status-row{display:flex;align-items:center;gap:8px;padding:0 28px 20px}
+.status-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0;transition:background .3s}
+.status-dot.live{background:var(--green);box-shadow:0 0 6px rgba(120,220,140,.5);animation:pulse 2s ease-in-out infinite}
+.status-dot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.status-text{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.inbox-header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px 12px;border-top:1px solid var(--border)}
+.inbox-title{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.inbox-count{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.1em;color:rgba(255,255,255,.25);background:rgba(255,255,255,.06);padding:2px 8px}
+.inbox-list{flex:1;overflow-y:auto;min-height:0}
+.msg-item{display:flex;flex-direction:column;gap:4px;padding:14px 28px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s;position:relative}
+.msg-item:hover{background:rgba(255,255,255,.03)}
+.msg-item.active{background:rgba(255,255,255,.05)}
+.msg-item.unread::before{content:'';position:absolute;left:12px;top:50%;transform:translateY(-50%);width:3px;height:3px;border-radius:50%;background:var(--white)}
+.msg-from{font-size:.8rem;font-weight:600;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.msg-time{font-family:'DM Mono',monospace;font-size:.56rem;color:rgba(255,255,255,.22);flex-shrink:0}
+.msg-subject{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-preview{font-family:'DM Mono',monospace;font-size:.62rem;color:rgba(255,255,255,.2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:300}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 28px;text-align:center;flex:1}
+.empty-icon{color:rgba(255,255,255,.06);margin-bottom:4px}
+.empty-title{font-size:.85rem;font-weight:600;color:rgba(255,255,255,.15);text-transform:uppercase;letter-spacing:.1em}
+.empty-sub{font-family:'DM Mono',monospace;font-size:.63rem;color:rgba(255,255,255,.1);line-height:1.7;max-width:220px}
+.right{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.viewer-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.viewer-empty-icon{color:rgba(255,255,255,.04)}
+.viewer-empty-text{font-size:clamp(1.2rem,2vw,2rem);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.06)}
+.viewer-empty-sub{font-family:'DM Mono',monospace;font-size:.66rem;color:rgba(255,255,255,.1);letter-spacing:.12em;text-transform:uppercase}
+.viewer-meta{padding:24px 36px 20px;border-bottom:1px solid var(--border);flex-shrink:0}
+.viewer-subject{font-size:1.3rem;font-weight:700;color:var(--white);letter-spacing:-.01em;margin-bottom:12px;line-height:1.2}
+.viewer-info{display:flex;flex-wrap:wrap;gap:18px}
+.viewer-field{display:flex;gap:8px;align-items:baseline}
+.viewer-field-label{font-family:'DM Mono',monospace;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.22);flex-shrink:0}
+.viewer-field-val{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);word-break:break-all}
+.viewer-actions{display:flex;align-items:center;gap:10px;padding:12px 36px;border-bottom:1px solid var(--border);flex-shrink:0}
+.viewer-body{flex:1;overflow-y:auto;padding:30px 36px}
+.viewer-text{font-family:'DM Mono',monospace;font-size:.8rem;line-height:1.9;color:var(--muted);font-weight:300;white-space:pre-wrap;word-break:break-word}
+.html-wrapper{background:#fff;padding:16px;border-radius:2px;overflow:auto}
+.otp-banner{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.04);border:1px solid var(--border2);padding:14px 18px;margin-bottom:20px}
+.otp-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.otp-code{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:400;color:var(--white);letter-spacing:.3em}
+.otp-copy{margin-left:auto}
+.toast{
+  position:fixed;bottom:28px;right:28px;z-index:9999;
+  font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.1em;
+  color:var(--white);background:rgba(20,20,20,0.96);border:1px solid var(--border2);
+  padding:11px 18px;transform:translateY(8px);opacity:0;
+  transition:opacity .3s,transform .3s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateY(0)}
+footer{display:flex;align-items:center;justify-content:space-between;padding:16px 44px;border-top:1px solid var(--border);flex-shrink:0}
+.ft-brand{font-size:.8rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.1)}
+.ft-links{display:flex;gap:16px}
+.ft-link{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.14);text-decoration:none;transition:color .2s}
+.ft-link:hover{color:rgba(255,255,255,.45)}
+.ft-meta{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.1em;color:rgba(255,255,255,.12)}
+.spin{animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:780px){
+  header{padding:16px 18px}
+  main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .left{border-right:none;border-bottom:1px solid var(--border);max-height:55vh}
+  footer{padding:14px 18px;flex-direction:column;gap:8px;text-align:center}
+  .viewer-meta{padding:18px 18px 16px}
+  .viewer-body{padding:18px}
+  .viewer-actions{padding:10px 18px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="brand">
+    <div class="brand-name">OX<span>I</span>UM</div>
+    <div class="brand-tag">Temp Mail</div>
+  </div>
+  <div class="header-right">
+    <span class="header-badge" id="hdr-timer"></span>
+  </div>
+</header>
+
+<div class="sep"></div>
+
+<main>
+  <div class="left">
+    <div class="email-box">
+      <p class="email-label">// Your disposable address</p>
+      <div class="email-address">
+        <span class="email-text loading" id="email-display">Generating address…</span>
+        <button class="icon-btn" id="copy-btn" title="Copy address">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
+        </button>
+      </div>
+      <div class="email-actions">
+        <button class="btn primary" id="refresh-btn" disabled>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg>
+          Refresh
+        </button>
+        <button class="btn" id="custom-btn" disabled>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+          New Address
+        </button>
+        <button class="btn danger" id="delete-btn" disabled>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
+          Nuke
+        </button>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="status-text" id="status-text">Initializing…</span>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="inbox-header">
+      <span class="inbox-title">// Inbox</span>
+      <span class="inbox-count" id="inbox-count">0 messages</span>
+    </div>
+
+    <div class="inbox-list" id="inbox-list">
+      <div class="empty-state" id="empty-state">
+        <svg class="empty-icon" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8"/><path d="M3 6l9 7 9-7"/></svg>
+        <div class="empty-title">No messages yet</div>
+        <div class="empty-sub">Use the address above to receive emails. They'll appear here instantly.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right" id="right-panel">
+    <div class="viewer-empty" id="viewer-empty">
+      <svg class="viewer-empty-icon" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.6"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8l9 6 9-6z"/><path d="M3 8l9-4 9 4"/></svg>
+      <div class="viewer-empty-text">Select a message</div>
+      <div class="viewer-empty-sub">// Choose from inbox</div>
+    </div>
+
+    <div id="viewer-content" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+      <div class="viewer-meta">
+        <div class="viewer-subject" id="viewer-subject"></div>
+        <div class="viewer-info">
+          <div class="viewer-field">
+            <span class="viewer-field-label">From</span>
+            <span class="viewer-field-val" id="viewer-from"></span>
+          </div>
+          <div class="viewer-field">
+            <span class="viewer-field-label">To</span>
+            <span class="viewer-field-val" id="viewer-to"></span>
+          </div>
+          <div class="viewer-field">
+            <span class="viewer-field-label">Date</span>
+            <span class="viewer-field-val" id="viewer-date"></span>
+          </div>
+        </div>
+      </div>
+      <div class="viewer-actions">
+        <button class="btn danger" id="del-msg-btn" style="flex:0 0 auto;width:auto">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
+          Delete
+        </button>
+        <button class="btn" id="raw-btn" style="flex:0 0 auto;width:auto">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 6l-3 3 3 3M11 6l3 3-3 3M9 4l-2 8"/></svg>
+          Raw
+        </button>
+      </div>
+      <div class="viewer-body" id="viewer-body"></div>
+    </div>
+  </div>
+</main>
+
+<div class="sep"></div>
+
+<footer>
+  <div class="ft-brand">Oxium</div>
+  <div class="ft-links">
+    <a href="https://github.com/" class="ft-link" target="_blank">GitHub</a>
+    <a href="https://api.mail.tm" class="ft-link" target="_blank">API</a>
+    <a href="#" class="ft-link">Privacy</a>
+  </div>
+  <div class="ft-meta">Open Source · Powered by mail.tm</div>
+</footer>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   OXIUM — Temp Mail App
+   Powered by mail.tm via corsproxy.io
+═══════════════════════════════════════════════════ */
+
+// mail.tm doesn't set CORS headers — proxy required for browser use
+const API_BASE = 'https://api.mail.tm';
+
+// Multiple proxies to try in order — if one fails we fall through to the next
+const PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://proxy.cors.sh/${url}`,
+  url => `https://cors-anywhere.herokuapp.com/${url}`,
+];
+
+let activeProxyIdx = 0;
+
+function apiUrl(path) {
+  const full = API_BASE + path;
+  return PROXIES[activeProxyIdx](full);
+}
+
+async function tryNextProxy() {
+  if (activeProxyIdx < PROXIES.length - 1) {
+    activeProxyIdx++;
+    console.log(`Switching to proxy ${activeProxyIdx}`);
+    return true;
+  }
+  return false;
+}
+
+let state = {
+  address: null,
+  password: null,
+  token: null,
+  accountId: null,
+  messages: [],
+  activeMsg: null,
+  pollInterval: null,
+  expiryTimer: null,
+  expiresAt: null,
+  refreshing: false,
+};
+
+/* ── USERNAME GENERATOR ── */
+const adjectives = ['soft','tiny','lucky','fuzzy','lazy','chill','sleepy','moody','bold','zesty','crisp','wild','breezy','spicy','cosmic','solar','misty','lumpy','curly','salty','snappy','funky','gloomy','vivid','calm','dusty','fluffy','grumpy','jolly','witty'];
+const nouns = ['frog','duck','bean','sock','lamp','mug','rock','leaf','fog','cloud','twig','moss','rain','sand','tide','wave','spark','bloom','drift','glow','stone','creek','pond','hill','vale','grove','patch','shade','haze','burst'];
+const verbs = ['eats','sleeps','runs','hops','glows','drifts','floats','hides','sings','reads','bakes','draws','swims','climbs','skips','types','codes','loops','scrolls','thinks'];
+
+function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function genUsername(){
+  const style = Math.floor(Math.random()*5);
+  switch(style){
+    case 0: return (randomChoice(adjectives)+randomChoice(nouns)).toLowerCase();
+    case 1: return (randomChoice(nouns)+randomChoice(verbs)).toLowerCase();
+    case 2: {
+      const vowels='aeiou', cons='bcdfghjklmnprstvwxyz';
+      let r=''; const len=6+Math.floor(Math.random()*4);
+      for(let i=0;i<len;i++) r+=Math.random()>.45?randomChoice(cons.split('')):randomChoice(vowels.split(''));
+      return r;
+    }
+    case 3: return (randomChoice(adjectives)+randomChoice(verbs)).toLowerCase();
+    case 4: return (randomChoice(nouns)+String(Math.floor(Math.random()*90)+10)).toLowerCase();
+  }
+}
+
+/* ── OTP DETECTOR ── */
+function extractOTP(text){
+  if(!text) return null;
+  const patterns = [
+    /\b(\d{6})\b/,
+    /\b(\d{4})\b/,
+    /\b(\d{5})\b/,
+    /\b(\d{7,8})\b/,
+    /(?:code|otp|verification code)[:\s]+([A-Z0-9]{4,8})/i,
+  ];
+  for(const p of patterns){
+    const m = text.match(p);
+    if(m) return m[1]||m[0].replace(/\D/g,'');
+  }
+  return null;
+}
+
+/* ── TIME UTILS ── */
+function timeAgo(dateStr){
+  const d = new Date(dateStr), now = new Date();
+  const diff = Math.floor((now-d)/1000);
+  if(diff<60) return diff+'s ago';
+  if(diff<3600) return Math.floor(diff/60)+'m ago';
+  if(diff<86400) return Math.floor(diff/3600)+'h ago';
+  return d.toLocaleDateString();
+}
+function formatDate(dateStr){
+  return new Date(dateStr).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+/* ── TOAST ── */
+let toastTimer;
+function toast(msg, dur=2400){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), dur);
+}
+
+/* ── STATUS ── */
+function setStatus(type, msg){
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot'+(type==='live'?' live':type==='error'?' error':'');
+  txt.textContent = msg;
+}
+
+/* ── EXPIRY TIMER ── */
+function startExpiryTimer(ms){
+  if(state.expiryTimer) clearInterval(state.expiryTimer);
+  state.expiresAt = Date.now()+ms;
+  const hdr = document.getElementById('hdr-timer');
+  function update(){
+    const rem = Math.max(0, state.expiresAt - Date.now());
+    const m = Math.floor(rem/60000), s = Math.floor((rem%60000)/1000);
+    hdr.textContent = `Expires ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if(rem<=0){ clearInterval(state.expiryTimer); hdr.textContent='Expired'; }
+  }
+  update();
+  state.expiryTimer = setInterval(update, 1000);
+}
+
+/* ── API HELPERS ── */
+async function apiFetch(path, opts={}, attempt=0){
+  const headers = {'Content-Type':'application/json','Accept':'application/json',...(opts.headers||{})};
+  if(state.token && !opts.noAuth) headers['Authorization']='Bearer '+state.token;
+
+  try {
+    const url = apiUrl(path);
+    const r = await fetch(url, {...opts, headers});
+    if(!r.ok){
+      let err;
+      try{ err = await r.json(); }catch{ err = {status: r.status}; }
+      throw Object.assign(new Error(err['hydra:description']||err.message||('HTTP '+r.status)), err);
+    }
+    if(r.status===204) return null;
+    return r.json();
+  } catch(e) {
+    // Network/CORS failure — try next proxy
+    if(attempt < PROXIES.length - 1 && (e.message === 'Failed to fetch' || e.name === 'TypeError')) {
+      const switched = await tryNextProxy();
+      if(switched) return apiFetch(path, opts, attempt+1);
+    }
+    throw e;
+  }
+}
+
+/* ── GET DOMAINS ── */
+async function getDomain(){
+  const data = await apiFetch('/domains?page=1', {noAuth:true});
+  const domains = data['hydra:member']||[];
+  if(!domains.length) throw new Error('No domains available from mail.tm');
+  return domains[0].domain;
+}
+
+/* ── CREATE ACCOUNT ── */
+async function createAccount(){
+  activeProxyIdx = 0; // reset proxy on each new account attempt
+  setStatus('', 'Connecting to mail.tm…');
+  const disp = document.getElementById('email-display');
+  disp.textContent = 'Generating…';
+  disp.classList.add('loading');
+
+  // Disable buttons while creating
+  ['refresh-btn','custom-btn','delete-btn'].forEach(id=>document.getElementById(id).disabled=true);
+
+  try {
+    setStatus('', 'Fetching domains…');
+    const domain = await getDomain();
+    const username = genUsername();
+    const address = `${username}@${domain}`;
+    const password = Math.random().toString(36).slice(2,10)+'!Ox9';
+
+    setStatus('', 'Registering address…');
+    // Create account — capture account ID from response
+    const accountData = await apiFetch('/accounts', {
+      method:'POST', noAuth:true,
+      body: JSON.stringify({address, password})
+    });
+
+    const tokenData = await apiFetch('/token', {
+      method:'POST', noAuth:true,
+      body: JSON.stringify({address, password})
+    });
+
+    state.address = address;
+    state.password = password;
+    state.token = tokenData.token;
+    state.accountId = accountData.id; // store for deletion
+    state.messages = [];
+    state.activeMsg = null;
+
+    disp.textContent = address;
+    disp.classList.remove('loading');
+
+    document.getElementById('copy-btn').onclick = ()=>{
+      navigator.clipboard.writeText(address).then(()=>toast('Copied to clipboard'));
+    };
+
+    ['refresh-btn','custom-btn','delete-btn'].forEach(id=>document.getElementById(id).disabled=false);
+
+    setStatus('live', 'Receiving mail · Auto-refresh every 10s');
+    startExpiryTimer(60*60*1000);
+
+    renderInbox([]);
+    showViewerEmpty();
+    startPolling();
+
+  } catch(e) {
+    disp.textContent = 'Failed — click New Address';
+    disp.classList.remove('loading');
+    const msg = e.message.includes('Failed to fetch') 
+      ? 'All proxies failed. Try a VPN or open from a server.'
+      : e.message;
+    setStatus('error', msg);
+    toast(msg, 5000);
+    document.getElementById('custom-btn').disabled = false;
+  }
+}
+
+/* ── FETCH MESSAGES ── */
+async function fetchMessages(){
+  if(!state.token) return;
+  try {
+    const data = await apiFetch('/messages?page=1');
+    const msgs = data['hydra:member']||[];
+    const prevCount = state.messages.length;
+    state.messages = msgs;
+    renderInbox(msgs);
+    if(msgs.length > prevCount && prevCount >= 0){
+      const diff = msgs.length - prevCount;
+      if(diff > 0 && prevCount > 0) toast(`${diff} new message${diff>1?'s':''}!`);
+    }
+  } catch(e) {
+    // Token may have expired — show error but don't crash
+    if(e.status === 401) {
+      setStatus('error', 'Session expired — generate new address');
+      stopPolling();
+    }
+  }
+}
+
+/* ── RENDER INBOX ── */
+function renderInbox(msgs){
+  const list = document.getElementById('inbox-list');
+  const empty = document.getElementById('empty-state');
+  const count = document.getElementById('inbox-count');
+  count.textContent = msgs.length + ' message'+(msgs.length!==1?'s':'');
+
+  if(!msgs.length){
+    list.innerHTML='';
+    list.appendChild(empty);
+    return;
+  }
+
+  const sorted = [...msgs].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  list.innerHTML = sorted.map(m=>`
+    <div class="msg-item${m.seen?'':' unread'}${state.activeMsg===m.id?' active':''}"
+         onclick="openMessage('${m.id}')" data-id="${m.id}">
+      <div class="msg-from">
+        <span>${escHtml(m.from?.name||m.from?.address||'Unknown')}</span>
+        <span class="msg-time">${timeAgo(m.createdAt)}</span>
+      </div>
+      <div class="msg-subject">${escHtml(m.subject||'(no subject)')}</div>
+      <div class="msg-preview">${escHtml(m.intro||'')}</div>
+    </div>
+  `).join('');
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ── OPEN MESSAGE ── */
+async function openMessage(id){
+  state.activeMsg = id;
+  document.querySelectorAll('.msg-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.id===id);
+  });
+
+  const viewer = document.getElementById('viewer-content');
+  const empty = document.getElementById('viewer-empty');
+  viewer.style.display='flex';
+  empty.style.display='none';
+
+  const bodyEl = document.getElementById('viewer-body');
+  bodyEl.innerHTML='<div class="viewer-text" style="opacity:.4">Loading…</div>';
+
+  try{
+    const msg = await apiFetch('/messages/'+id);
+
+    document.getElementById('viewer-subject').textContent = msg.subject||'(no subject)';
+    document.getElementById('viewer-from').textContent = msg.from?.address||'Unknown';
+    document.getElementById('viewer-to').textContent = (msg.to||[]).map(t=>t.address).join(', ')||state.address||'';
+    document.getElementById('viewer-date').textContent = formatDate(msg.createdAt);
+
+    bodyEl.innerHTML='';
+
+    // OTP detection
+    const plainText = msg.text||'';
+    const otp = extractOTP(plainText);
+    if(otp){
+      const banner = document.createElement('div');
+      banner.className='otp-banner';
+      const safeOtp = otp.replace(/'/g,"\\'");
+      banner.innerHTML=`
+        <span class="otp-label">// Code detected</span>
+        <span class="otp-code">${escHtml(otp)}</span>
+        <button class="btn otp-copy" onclick="navigator.clipboard.writeText('${safeOtp}').then(()=>toast('Code copied!'))">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
+          Copy
+        </button>
+      `;
+      bodyEl.appendChild(banner);
+    }
+
+    // Render HTML content safely without iframe (iframe sandbox was breaking it)
+    if(msg.html && msg.html.length > 0 && msg.html[0]){
+      const wrapper = document.createElement('div');
+      wrapper.className = 'html-wrapper';
+      // Use a blob URL to isolate HTML rendering
+      const blob = new Blob([msg.html[0]], {type:'text/html'});
+      const blobUrl = URL.createObjectURL(blob);
+      const iframe = document.createElement('iframe');
+      iframe.src = blobUrl;
+      iframe.style.cssText='width:100%;border:none;min-height:400px;display:block';
+      iframe.onload = ()=>{
+        try{
+          const h = iframe.contentDocument.documentElement.scrollHeight;
+          iframe.style.height = (h+20)+'px';
+        }catch{}
+        URL.revokeObjectURL(blobUrl);
+      };
+      bodyEl.appendChild(iframe);
+    } else {
+      const pre = document.createElement('div');
+      pre.className='viewer-text';
+      pre.textContent = plainText||'(empty message)';
+      bodyEl.appendChild(pre);
+    }
+
+    document.getElementById('del-msg-btn').onclick = ()=>deleteMessage(id);
+    document.getElementById('raw-btn').onclick = ()=>{
+      const w = window.open('','_blank');
+      w.document.write('<pre style="background:#111;color:#ccc;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap">'+escHtml(JSON.stringify(msg,null,2))+'</pre>');
+    };
+
+    const local = state.messages.find(m=>m.id===id);
+    if(local) local.seen=true;
+    document.querySelectorAll('.msg-item').forEach(el=>{
+      if(el.dataset.id===id) el.classList.remove('unread');
+    });
+
+  }catch(e){
+    bodyEl.innerHTML=`<div class="viewer-text" style="color:var(--red)">Failed to load message: ${escHtml(e.message)}</div>`;
+  }
+}
+
+/* ── DELETE MESSAGE ── */
+async function deleteMessage(id){
+  try{
+    await apiFetch('/messages/'+id, {method:'DELETE'});
+    state.messages = state.messages.filter(m=>m.id!==id);
+    state.activeMsg=null;
+    renderInbox(state.messages);
+    showViewerEmpty();
+    toast('Message deleted');
+  }catch(e){ toast('Delete failed: '+e.message); }
+}
+
+/* ── SHOW VIEWER EMPTY ── */
+function showViewerEmpty(){
+  document.getElementById('viewer-content').style.display='none';
+  document.getElementById('viewer-empty').style.display='flex';
+}
+
+/* ── POLLING ── */
+function startPolling(){
+  if(state.pollInterval) clearInterval(state.pollInterval);
+  fetchMessages();
+  state.pollInterval = setInterval(fetchMessages, 10000);
+}
+function stopPolling(){
+  if(state.pollInterval){ clearInterval(state.pollInterval); state.pollInterval=null; }
+}
+
+/* ── NUKE (delete account) ── */
+async function nukeAddress(){
+  if(!confirm('Destroy this address and all messages?')) return;
+  stopPolling();
+  if(state.expiryTimer) clearInterval(state.expiryTimer);
+
+  // Actually delete the account this time (unlike the original "TODO" comment)
+  if(state.accountId && state.token){
+    try{
+      await apiFetch('/accounts/'+state.accountId, {method:'DELETE'});
+    }catch(e){ /* account may already be gone */ }
+  }
+
+  state = {...state, address:null, password:null, token:null, accountId:null, messages:[], activeMsg:null};
+  document.getElementById('email-display').textContent='Generating…';
+  document.getElementById('email-display').classList.add('loading');
+  ['refresh-btn','custom-btn','delete-btn'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('hdr-timer').textContent='';
+  setStatus('','Nuked. Generating new address…');
+  renderInbox([]);
+  showViewerEmpty();
+  setTimeout(()=>createAccount(), 400);
+}
+
+/* ── MANUAL REFRESH ── */
+async function manualRefresh(){
+  if(state.refreshing) return;
+  state.refreshing=true;
+  const btn = document.getElementById('refresh-btn');
+  btn.innerHTML='<svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refreshing…';
+  btn.disabled=true;
+  try{
+    await fetchMessages();
+    toast('Inbox refreshed');
+  }catch(e){ toast('Refresh failed: '+e.message); }
+  btn.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refresh';
+  btn.disabled=false;
+  state.refreshing=false;
+}
+
+/* ── BUTTON WIRING ── */
+document.getElementById('refresh-btn').addEventListener('click', manualRefresh);
+document.getElementById('custom-btn').addEventListener('click', ()=>{
+  stopPolling();
+  toast('Generating new address…');
+  createAccount();
+});
+document.getElementById('delete-btn').addEventListener('click', nukeAddress);
+
+/* ── INIT ── */
+createAccount();
+</script>
+</body>
+</html>
