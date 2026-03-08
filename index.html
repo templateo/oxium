@@ -247,12 +247,21 @@ function startExpiryTimer(ms){
   tick(); state.expiryTimer=setInterval(tick,1000);
 }
 
-/* API call — all GuerrillaMail endpoints are plain GET with CORS headers */
+/* API call — credentials:include sends the PHPSESSID session cookie GuerrillaMail needs */
 async function gCall(params){
   const qs = new URLSearchParams({ip:'127.0.0.1', agent:'Mozilla/5.0', ...params});
-  const r = await fetch(`${API}?${qs}`);
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  return r.json();
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 10000);
+  try {
+    const r = await fetch(`${API}?${qs}`, {credentials:'include', signal:ctrl.signal});
+    clearTimeout(t);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  } catch(e) {
+    clearTimeout(t);
+    if(e.name==='AbortError') throw new Error('Request timed out (10s)');
+    throw e;
+  }
 }
 
 async function initSession(){
