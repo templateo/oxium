@@ -11,12 +11,10 @@ exports.handler = async function(event) {
     return { statusCode: 204, headers: cors, body: '' };
   }
 
-  // Netlify passes the splat as event.path = /.netlify/functions/proxy/domains
-  // We need everything after the function name
-  const match = event.path.match(/\/proxy(\/.*)?$/);
-  const apiPath = (match && match[1]) ? match[1] : '/';
+  // The splat captures everything after /api/
+  const splat = event.pathParameters?.proxy || '';
   const qs = event.rawQuery ? '?' + event.rawQuery : '';
-  const url = MAILTM + apiPath + qs;
+  const url = MAILTM + '/' + splat + qs;
 
   const headers = {
     'Content-Type': 'application/json',
