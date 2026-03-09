@@ -11,8 +11,10 @@ exports.handler = async function(event) {
     return { statusCode: 204, headers: cors, body: '' };
   }
 
-  const path = event.path.replace('/.netlify/functions/proxy', '') || '/';
-  const url = MAILTM + path + (event.rawQuery ? '?' + event.rawQuery : '');
+  // event.path will be /.netlify/functions/proxy/domains?page=1
+  // We want everything after /proxy
+  const stripped = event.path.split('/proxy')[1] || '/';
+  const url = MAILTM + stripped + (event.rawQuery ? '?' + event.rawQuery : '');
 
   const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
   if(event.headers['authorization']) headers['Authorization'] = event.headers['authorization'];
