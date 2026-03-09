@@ -1,7 +1,3 @@
-// netlify/functions/proxy.js
-// Proxies requests to mail.tm server-side so CORS is never an issue.
-// Deployed automatically by Netlify — no config needed beyond netlify.toml
-
 const MAILTM = 'https://api.mail.tm';
 
 exports.handler = async function(event) {
@@ -15,7 +11,6 @@ exports.handler = async function(event) {
     return { statusCode: 204, headers: cors, body: '' };
   }
 
-  // Strip /.netlify/functions/proxy from path, keep the rest
   const path = event.path.replace('/.netlify/functions/proxy', '') || '/';
   const url = MAILTM + path + (event.rawQuery ? '?' + event.rawQuery : '');
 
@@ -28,7 +23,6 @@ exports.handler = async function(event) {
       headers,
       body: ['GET','HEAD'].includes(event.httpMethod) ? undefined : event.body,
     });
-
     const text = await res.text();
     return {
       statusCode: res.status,
