@@ -7,15 +7,39 @@ exports.handler = async function(event) {
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   };
 
-  // Return debug info so we can see exactly what Netlify passes
-  return {
-    statusCode: 200,
-    headers: cors,
-    body: JSON.stringify({
-      path: event.path,
-      pathParameters: event.pathParameters,
-      rawQuery: event.rawQuery,
-      httpMethod: event.httpMethod,
-    }, null, 2),
+  if(event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: cors, body: '' };
+  }
+
+  const apiPath = event.path.replace(/^\/api/, '') || '/';
+  const qs = event.rawQuery ? '?' + event.rawQuery : '';
+  const url = MAILTM + apiPath + qs;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/ld+json, application/json',
   };
+  if(event.headers['authorization']) {
+    headers['Authorization'] = event.headers['authorization'];
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: event.httpMethod,
+      headers,
+      body: ['GET','HEAD'].includes(event.httpMethod) ? undefined : event.body,
+    });
+    const text = await res.text();
+    return {
+      statusCode: res.status,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+      body: text,
+    };
+  } catch(e) {
+    return {
+      statusCode: 502,
+      headers: cors,
+      body: JSON.stringify({ error: e.message }),
+    };
+  }
 };
