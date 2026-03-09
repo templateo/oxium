@@ -102,7 +102,7 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:16p
   main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   .left{border-right:none;border-bottom:1px solid var(--border);max-height:55vh}
   footer{padding:14px 18px;flex-direction:column;gap:8px;text-align:center}
-  .viewer-meta{padding:18px 18px 16px}
+  .viewer-meta{padding:18px}
   .viewer-body{padding:18px}
   .viewer-actions{padding:10px 18px}
 }
@@ -195,330 +195,178 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:16p
 <footer>
   <div class="ft-brand">Oxium</div>
   <div class="ft-links">
-    <a href="https://www.1secmail.com/api/" class="ft-link" target="_blank">API Docs</a>
+    <a href="https://github.com/templateo/oxium" class="ft-link" target="_blank">GitHub</a>
+    <a href="https://api.mail.tm" class="ft-link" target="_blank">API</a>
   </div>
-  <div class="ft-meta">Powered by 1secmail</div>
+  <div class="ft-meta">Open Source · Powered by mail.tm</div>
 </footer>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-/* ══════════════════════════════════════════════
-   OXIUM — Powered by 1secmail.com
-   Pure GET requests, no auth, no CORS issues.
+/* ═══════════════════════════════════════════════════════════
+   OXIUM — mail.tm via Netlify Function proxy (/api/*)
    
-   API endpoints:
-   GET /api/v1/?action=genRandomMailbox
-   GET /api/v1/?action=getMessages&login=X&domain=Y
-   GET /api/v1/?action=readMessage&login=X&domain=Y&id=Z
-   GET /api/v1/?action=getDomainList
-══════════════════════════════════════════════ */
+   Requests go: browser → /api/* → netlify/functions/proxy.js → mail.tm
+   No CORS issues because the function runs server-side.
+═══════════════════════════════════════════════════════════ */
 
-const API = 'https://www.1secmail.com/api/v1/';
+// All API calls go to /api/ — Netlify routes this to the function
+const API = '/api';
 
 let state = {
-  login: null,
-  domain: null,
-  messages: [],   // [{id, from, subject, date, read, body?}]
-  activeId: null,
-  pollInterval: null,
-  expiryTimer: null,
-  refreshing: false,
+  address: null, password: null, token: null, accountId: null,
+  messages: [], activeMsg: null,
+  pollInterval: null, expiryTimer: null, refreshing: false,
 };
 
-/* ── utils ── */
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-function timeAgo(dateStr){
-  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-  if(diff < 60) return diff + 's ago';
-  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
-  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
-  return new Date(dateStr).toLocaleDateString();
-}
-
-function formatDate(dateStr){
-  return new Date(dateStr).toLocaleString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-}
-
-let _tt;
-function toast(msg, dur=2400){
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), dur);
-}
-
-function setStatus(type, msg){
-  document.getElementById('status-dot').className = 'status-dot' + (type==='live' ? ' live' : type==='error' ? ' error' : '');
-  document.getElementById('status-text').textContent = msg;
-}
-
-function setBtns(enabled){
-  ['refresh-btn','new-btn','nuke-btn'].forEach(id => document.getElementById(id).disabled = !enabled);
-}
-
+function timeAgo(d){ const s=Math.floor((Date.now()-new Date(d))/1000); if(s<60)return s+'s ago'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; return new Date(d).toLocaleDateString(); }
+function formatDate(d){ return new Date(d).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+let _tt; function toast(msg,dur=2400){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),dur); }
+function setStatus(t,msg){ document.getElementById('status-dot').className='status-dot'+(t==='live'?' live':t==='error'?' error':''); document.getElementById('status-text').textContent=msg; }
+function setBtns(on){ ['refresh-btn','new-btn','nuke-btn'].forEach(id=>document.getElementById(id).disabled=!on); }
 function startExpiryTimer(ms){
   if(state.expiryTimer) clearInterval(state.expiryTimer);
-  const end = Date.now() + ms;
-  const hdr = document.getElementById('hdr-timer');
-  function tick(){
-    const r = Math.max(0, end - Date.now());
-    const m = Math.floor(r/60000), s = Math.floor((r%60000)/1000);
-    hdr.textContent = `Expires ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    if(!r){ clearInterval(state.expiryTimer); hdr.textContent = 'Expired'; }
-  }
-  tick(); state.expiryTimer = setInterval(tick, 1000);
+  const end=Date.now()+ms; const hdr=document.getElementById('hdr-timer');
+  function tick(){ const r=Math.max(0,end-Date.now()); const m=Math.floor(r/60000),s=Math.floor((r%60000)/1000); hdr.textContent=`Expires ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; if(!r){clearInterval(state.expiryTimer);hdr.textContent='Expired';} }
+  tick(); state.expiryTimer=setInterval(tick,1000);
 }
 
-/* ── API ── */
-async function apiGet(params){
-  const url = API + '?' + new URLSearchParams(params);
-  const r = await fetch(url);
-  if(!r.ok) throw new Error('HTTP ' + r.status);
+async function apiFetch(path, opts={}){
+  const headers={'Content-Type':'application/json','Accept':'application/json',...(opts.headers||{})};
+  if(state.token && !opts.noAuth) headers['Authorization']='Bearer '+state.token;
+  const r = await fetch(API+path, {...opts, headers});
+  if(!r.ok){ let e; try{e=await r.json();}catch{e={status:r.status};} throw Object.assign(new Error(e['hydra:description']||e.message||'HTTP '+r.status),e); }
+  if(r.status===204) return null;
   return r.json();
 }
 
-/* ── INIT: generate a random mailbox ── */
-async function initMailbox(){
-  const disp = document.getElementById('email-display');
-  disp.textContent = 'Generating…'; disp.classList.add('loading');
-  setStatus('', 'Generating address…');
+const adj=['soft','tiny','lucky','fuzzy','lazy','chill','sleepy','bold','zesty','crisp','wild','misty','salty','funky','vivid','dusty','fluffy','grumpy','jolly','witty'];
+const nouns=['frog','duck','bean','sock','lamp','mug','rock','leaf','twig','rain','wave','spark','bloom','drift','stone','pond','grove','shade','burst','crab'];
+function rnd(a){return a[Math.floor(Math.random()*a.length)];}
+function genUser(){ const s=Math.floor(Math.random()*3); if(s===0)return rnd(adj)+rnd(nouns); if(s===1)return rnd(nouns)+Math.floor(Math.random()*90+10); return rnd(adj)+rnd(nouns)+Math.floor(Math.random()*9+1); }
+
+function extractOTP(t){ if(!t)return null; for(const p of[/\b(\d{6})\b/,/\b(\d{4})\b/,/\b(\d{5})\b/,/(?:code|otp|verification)[:\s]+([A-Z0-9]{4,8})/i]){const m=t.match(p);if(m)return m[1]||m[0].replace(/\D/g,'');} return null; }
+function showViewerEmpty(){ document.getElementById('viewer-content').style.display='none'; document.getElementById('viewer-empty').style.display='flex'; }
+function stopPolling(){ if(state.pollInterval){clearInterval(state.pollInterval);state.pollInterval=null;} }
+function startPolling(){ stopPolling(); fetchMessages(); state.pollInterval=setInterval(fetchMessages,10000); }
+
+async function createAccount(){
+  setStatus('','Creating address…');
+  const disp=document.getElementById('email-display');
+  disp.textContent='Generating…'; disp.classList.add('loading');
   setBtns(false);
-  state.messages = []; state.activeId = null;
-  stopPolling();
-  if(state.expiryTimer) clearInterval(state.expiryTimer);
-  document.getElementById('hdr-timer').textContent = '';
 
   try {
-    // Returns array like ["user@1secmail.com"]
-    const data = await apiGet({ action: 'genRandomMailbox', count: 1 });
-    if(!Array.isArray(data) || !data[0]) throw new Error('Bad response: ' + JSON.stringify(data));
+    const domain=(await apiFetch('/domains?page=1',{noAuth:true}))['hydra:member']?.[0]?.domain;
+    if(!domain) throw new Error('No domains available');
 
-    const email = data[0];
-    const [login, domain] = email.split('@');
-    state.login = login;
-    state.domain = domain;
+    const user=genUser(), address=`${user}@${domain}`, password=Math.random().toString(36).slice(2,10)+'!Ox9';
 
-    disp.textContent = email; disp.classList.remove('loading');
-    document.getElementById('copy-btn').onclick = () =>
-      navigator.clipboard.writeText(email).then(() => toast('Copied!'));
+    const acct=await apiFetch('/accounts',{method:'POST',noAuth:true,body:JSON.stringify({address,password})});
+    const tok=await apiFetch('/token',{method:'POST',noAuth:true,body:JSON.stringify({address,password})});
 
+    state.address=address; state.password=password; state.token=tok.token;
+    state.accountId=acct.id; state.messages=[]; state.activeMsg=null;
+
+    disp.textContent=address; disp.classList.remove('loading');
+    document.getElementById('copy-btn').onclick=()=>navigator.clipboard.writeText(address).then(()=>toast('Copied!'));
     setBtns(true);
-    setStatus('live', 'Receiving mail · Auto-refresh every 15s');
-    startExpiryTimer(2 * 24 * 60 * 60 * 1000); // 1secmail keeps for 2 days
-    renderInbox([]);
-    showViewerEmpty();
-    startPolling();
+    setStatus('live','Receiving mail · Auto-refresh every 10s');
+    startExpiryTimer(60*60*1000);
+    renderInbox([]); showViewerEmpty(); startPolling();
 
   } catch(e) {
-    disp.textContent = 'Failed'; disp.classList.remove('loading');
-    setStatus('error', e.message);
-    toast('Error: ' + e.message, 5000);
-    document.getElementById('new-btn').disabled = false;
-    console.error(e);
+    disp.textContent='Failed'; disp.classList.remove('loading');
+    setStatus('error',e.message);
+    toast('Error: '+e.message, 5000);
+    document.getElementById('new-btn').disabled=false;
   }
 }
 
-/* ── FETCH INBOX ── */
 async function fetchMessages(){
-  if(!state.login) return;
+  if(!state.token) return;
   try {
-    const data = await apiGet({ action: 'getMessages', login: state.login, domain: state.domain });
-    if(!Array.isArray(data)) throw new Error('Unexpected response');
-
-    const prev = state.messages.length;
-    // Merge — preserve body cache
-    const cached = Object.fromEntries(state.messages.map(m => [m.id, m]));
-    state.messages = data.map(m => ({
-      id: m.id,
-      from: m.from,
-      subject: m.subject,
-      date: m.date,
-      read: cached[m.id]?.read || false,
-      body: cached[m.id]?.body || null,
-      htmlBody: cached[m.id]?.htmlBody || null,
-      attachments: cached[m.id]?.attachments || [],
-    }));
-
-    renderInbox(state.messages);
-    const diff = state.messages.length - prev;
-    if(diff > 0 && prev > 0) toast(`${diff} new message${diff > 1 ? 's' : ''}!`);
-  } catch(e) {
-    console.warn('Poll failed:', e.message);
-  }
+    const data=await apiFetch('/messages?page=1');
+    const msgs=data['hydra:member']||[];
+    const prev=state.messages.length;
+    state.messages=msgs;
+    renderInbox(msgs);
+    if(msgs.length>prev && prev>=0){ const d=msgs.length-prev; if(d>0&&prev>0) toast(`${d} new message${d>1?'s':''}!`); }
+  } catch(e){ if(e.status===401){setStatus('error','Session expired');stopPolling();} }
 }
 
-/* ── RENDER INBOX ── */
 function renderInbox(msgs){
-  const list = document.getElementById('inbox-list');
-  document.getElementById('inbox-count').textContent = msgs.length + ' message' + (msgs.length !== 1 ? 's' : '');
-  if(!msgs.length){
-    list.innerHTML = '';
-    list.appendChild(document.getElementById('empty-state'));
-    return;
-  }
-  const sorted = [...msgs].sort((a,b) => new Date(b.date) - new Date(a.date));
-  list.innerHTML = sorted.map(m => `
-    <div class="msg-item${m.read ? '' : ' unread'}${state.activeId === m.id ? ' active' : ''}"
-         onclick="openMessage(${m.id})" data-id="${m.id}">
-      <div class="msg-from">
-        <span>${escHtml(m.from)}</span>
-        <span class="msg-time">${timeAgo(m.date)}</span>
-      </div>
-      <div class="msg-subject">${escHtml(m.subject || '(no subject)')}</div>
-    </div>
-  `).join('');
+  const list=document.getElementById('inbox-list');
+  document.getElementById('inbox-count').textContent=msgs.length+' message'+(msgs.length!==1?'s':'');
+  if(!msgs.length){ list.innerHTML=''; list.appendChild(document.getElementById('empty-state')); return; }
+  const sorted=[...msgs].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  list.innerHTML=sorted.map(m=>`
+    <div class="msg-item${m.seen?'':' unread'}${state.activeMsg===m.id?' active':''}" onclick="openMessage('${m.id}')" data-id="${m.id}">
+      <div class="msg-from"><span>${escHtml(m.from?.name||m.from?.address||'Unknown')}</span><span class="msg-time">${timeAgo(m.createdAt)}</span></div>
+      <div class="msg-subject">${escHtml(m.subject||'(no subject)')}</div>
+      <div class="msg-preview">${escHtml(m.intro||'')}</div>
+    </div>`).join('');
 }
 
-/* ── OPEN MESSAGE ── */
 async function openMessage(id){
-  state.activeId = id;
-  document.querySelectorAll('.msg-item').forEach(el =>
-    el.classList.toggle('active', parseInt(el.dataset.id) === id));
-
-  document.getElementById('viewer-content').style.display = 'flex';
-  document.getElementById('viewer-empty').style.display = 'none';
-
-  const bodyEl = document.getElementById('viewer-body');
-  bodyEl.innerHTML = '<div class="viewer-text" style="opacity:.4">Loading…</div>';
-
-  const local = state.messages.find(m => m.id === id);
-
+  state.activeMsg=id;
+  document.querySelectorAll('.msg-item').forEach(el=>el.classList.toggle('active',el.dataset.id===id));
+  document.getElementById('viewer-content').style.display='flex';
+  document.getElementById('viewer-empty').style.display='none';
+  const bodyEl=document.getElementById('viewer-body');
+  bodyEl.innerHTML='<div class="viewer-text" style="opacity:.4">Loading…</div>';
   try {
-    let msg;
-    if(local?.body !== null) {
-      // already cached
-      msg = local;
-    } else {
-      const data = await apiGet({ action: 'readMessage', login: state.login, domain: state.domain, id });
-      // cache on local state
-      if(local){
-        local.body = data.body || data.textBody || '';
-        local.htmlBody = data.htmlBody || '';
-        local.attachments = data.attachments || [];
-        msg = local;
-      } else {
-        msg = { from: data.from, subject: data.subject, date: data.date,
-                body: data.body || data.textBody || '', htmlBody: data.htmlBody || '', attachments: data.attachments || [] };
-      }
-    }
-
-    document.getElementById('viewer-subject').textContent = msg.subject || '(no subject)';
-    document.getElementById('viewer-from').textContent = msg.from || 'Unknown';
-    document.getElementById('viewer-to').textContent = `${state.login}@${state.domain}`;
-    document.getElementById('viewer-date').textContent = formatDate(msg.date);
-
-    bodyEl.innerHTML = '';
-
-    // OTP detection
-    const plain = msg.body || '';
-    const otp = extractOTP(plain);
-    if(otp){
-      const b = document.createElement('div');
-      b.className = 'otp-banner';
-      b.innerHTML = `
-        <span class="otp-label">// Code detected</span>
-        <span class="otp-code">${escHtml(otp)}</span>
-        <button class="btn otp-copy" onclick="navigator.clipboard.writeText('${otp.replace(/'/g,"\\'")}').then(()=>toast('Copied!'))">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
-          Copy
-        </button>`;
-      bodyEl.appendChild(b);
-    }
-
-    // Render body
-    const htmlSrc = msg.htmlBody || '';
-    if(htmlSrc.trim()){
-      const blob = new Blob([htmlSrc], {type:'text/html'});
-      const blobUrl = URL.createObjectURL(blob);
-      const iframe = document.createElement('iframe');
-      iframe.src = blobUrl;
-      iframe.style.cssText = 'width:100%;border:none;min-height:400px;display:block;background:#fff';
-      iframe.onload = () => {
-        try{ iframe.style.height = (iframe.contentDocument.documentElement.scrollHeight + 20) + 'px'; }catch{}
-        URL.revokeObjectURL(blobUrl);
-      };
+    const msg=await apiFetch('/messages/'+id);
+    document.getElementById('viewer-subject').textContent=msg.subject||'(no subject)';
+    document.getElementById('viewer-from').textContent=msg.from?.address||'Unknown';
+    document.getElementById('viewer-to').textContent=(msg.to||[]).map(t=>t.address).join(', ')||state.address||'';
+    document.getElementById('viewer-date').textContent=formatDate(msg.createdAt);
+    bodyEl.innerHTML='';
+    const plain=msg.text||'';
+    const otp=extractOTP(plain);
+    if(otp){ const b=document.createElement('div'); b.className='otp-banner'; b.innerHTML=`<span class="otp-label">// Code detected</span><span class="otp-code">${escHtml(otp)}</span><button class="btn otp-copy" onclick="navigator.clipboard.writeText('${otp.replace(/'/g,"\\'")}').then(()=>toast('Copied!'))"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg> Copy</button>`; bodyEl.appendChild(b); }
+    if(msg.html?.length){
+      const blob=new Blob([msg.html[0]],{type:'text/html'}); const url=URL.createObjectURL(blob);
+      const iframe=document.createElement('iframe'); iframe.src=url;
+      iframe.style.cssText='width:100%;border:none;min-height:400px;display:block;background:#fff';
+      iframe.onload=()=>{ try{iframe.style.height=(iframe.contentDocument.documentElement.scrollHeight+20)+'px';}catch{} URL.revokeObjectURL(url); };
       bodyEl.appendChild(iframe);
-    } else {
-      const pre = document.createElement('div');
-      pre.className = 'viewer-text';
-      pre.textContent = plain || '(empty message)';
-      bodyEl.appendChild(pre);
-    }
-
-    if(local) local.read = true;
-    document.querySelectorAll('.msg-item').forEach(el => {
-      if(parseInt(el.dataset.id) === id) el.classList.remove('unread');
-    });
-
-    document.getElementById('del-msg-btn').onclick = () => deleteMessage(id);
-    document.getElementById('raw-btn').onclick = () => {
-      const w = window.open('', '_blank');
-      w.document.write('<pre style="background:#111;color:#ccc;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap">' + escHtml(JSON.stringify(msg, null, 2)) + '</pre>');
-    };
-
-  } catch(e) {
-    bodyEl.innerHTML = `<div class="viewer-text" style="color:var(--red)">Failed to load: ${escHtml(e.message)}</div>`;
-  }
+    } else { const pre=document.createElement('div'); pre.className='viewer-text'; pre.textContent=plain||'(empty)'; bodyEl.appendChild(pre); }
+    const local=state.messages.find(m=>m.id===id); if(local) local.seen=true;
+    document.querySelectorAll('.msg-item').forEach(el=>{if(el.dataset.id===id)el.classList.remove('unread');});
+    document.getElementById('del-msg-btn').onclick=()=>deleteMessage(id);
+    document.getElementById('raw-btn').onclick=()=>{ const w=window.open('','_blank'); w.document.write('<pre style="background:#111;color:#ccc;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap">'+escHtml(JSON.stringify(msg,null,2))+'</pre>'); };
+  } catch(e){ bodyEl.innerHTML=`<div class="viewer-text" style="color:var(--red)">Failed: ${escHtml(e.message)}</div>`; }
 }
 
-/* ── DELETE MESSAGE ── */
 async function deleteMessage(id){
-  // 1secmail doesn't have a delete API — just remove from local state
-  state.messages = state.messages.filter(m => m.id !== id);
-  state.activeId = null;
-  renderInbox(state.messages);
-  showViewerEmpty();
-  toast('Removed from view');
+  try{ await apiFetch('/messages/'+id,{method:'DELETE'}); state.messages=state.messages.filter(m=>m.id!==id); state.activeMsg=null; renderInbox(state.messages); showViewerEmpty(); toast('Deleted'); }
+  catch(e){ toast('Delete failed: '+e.message); }
 }
 
-/* ── OTP ── */
-function extractOTP(text){
-  if(!text) return null;
-  for(const p of [/\b(\d{6})\b/, /\b(\d{4})\b/, /\b(\d{5})\b/, /\b(\d{7,8})\b/, /(?:code|otp|verification)[:\s]+([A-Z0-9]{4,8})/i]){
-    const m = text.match(p); if(m) return m[1] || m[0].replace(/\D/g,'');
-  }
-  return null;
-}
-
-function showViewerEmpty(){
-  document.getElementById('viewer-content').style.display = 'none';
-  document.getElementById('viewer-empty').style.display = 'flex';
-}
-
-function startPolling(){
-  stopPolling();
-  fetchMessages();
-  state.pollInterval = setInterval(fetchMessages, 15000);
-}
-function stopPolling(){
-  if(state.pollInterval){ clearInterval(state.pollInterval); state.pollInterval = null; }
-}
-
-/* ── MANUAL REFRESH ── */
 async function manualRefresh(){
-  if(state.refreshing) return;
-  state.refreshing = true;
-  const btn = document.getElementById('refresh-btn');
-  btn.innerHTML = '<svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refreshing…';
-  btn.disabled = true;
-  try { await fetchMessages(); toast('Refreshed'); } catch(e) { toast('Failed: ' + e.message); }
-  btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refresh';
-  btn.disabled = false;
-  state.refreshing = false;
+  if(state.refreshing)return; state.refreshing=true;
+  const btn=document.getElementById('refresh-btn');
+  btn.innerHTML='<svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refreshing…'; btn.disabled=true;
+  try{await fetchMessages();toast('Refreshed');}catch(e){toast('Failed');}
+  btn.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refresh'; btn.disabled=false; state.refreshing=false;
 }
 
-/* ── WIRE BUTTONS ── */
-document.getElementById('refresh-btn').addEventListener('click', manualRefresh);
-document.getElementById('new-btn').addEventListener('click', () => { toast('Generating new address…'); initMailbox(); });
-document.getElementById('nuke-btn').addEventListener('click', () => {
-  if(!confirm('Generate a new address? Current one will stop working.')) return;
-  initMailbox();
+document.getElementById('refresh-btn').addEventListener('click',manualRefresh);
+document.getElementById('new-btn').addEventListener('click',()=>{stopPolling();createAccount();});
+document.getElementById('nuke-btn').addEventListener('click',()=>{
+  if(!confirm('Destroy this address?'))return;
+  stopPolling(); if(state.expiryTimer)clearInterval(state.expiryTimer);
+  if(state.accountId&&state.token) apiFetch('/accounts/'+state.accountId,{method:'DELETE'}).catch(()=>{});
+  state={...state,address:null,password:null,token:null,accountId:null,messages:[],activeMsg:null};
+  document.getElementById('hdr-timer').textContent='';
+  setStatus('','Nuked…'); renderInbox([]); showViewerEmpty();
+  setTimeout(createAccount,400);
 });
-document.getElementById('copy-btn').onclick = () => toast('No address yet');
 
-/* ── GO ── */
-initMailbox();
+createAccount();
 </script>
 </body>
 </html>
