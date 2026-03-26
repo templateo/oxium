@@ -5,364 +5,595 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Oxium — Disposable Mail</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#080808;--surface:#0f0f0f;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
-  --text:#e8e8e8;--muted:#b0b0b0;
-  --white:#ffffff;
-  --green:rgba(120,220,140,0.85);--red:rgba(255,100,100,0.8);
+  --bg:#07090d;
+  --shell:#0c0f16;
+  --panel:#0f1420;
+  --card:#131926;
+  --card-hover:#161d2b;
+  --border:rgba(255,255,255,0.055);
+  --border-lit:rgba(255,255,255,0.11);
+  --text:#b8c5d6;
+  --muted:#4d6278;
+  --white:#e2ecf8;
+  --accent:#4f8ef7;
+  --accent-soft:rgba(79,142,247,0.1);
+  --accent-glow:rgba(79,142,247,0.18);
+  --green:#34d87c;
+  --green-soft:rgba(52,216,124,0.1);
+  --red:#f75f6c;
+  --red-soft:rgba(247,95,108,0.08);
+  --r:12px;
+  --r-sm:8px;
 }
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden}
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.3);border-radius:2px}
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");background-size:200px 200px;opacity:0.35;}
-#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
-header{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:20px 44px;background:rgba(8,8,8,0.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
-.brand{display:flex;align-items:baseline;gap:10px;cursor:default;user-select:none}
-.brand-name{font-size:1.2rem;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;color:var(--white)}
-.brand-name span{color:var(--muted)}
-.brand-tag{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.1);padding:2px 7px}
-.header-badge{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.2)}
-.sep{width:100%;height:1.5px;background:repeating-linear-gradient(to right,rgba(255,255,255,.22) 0,rgba(255,255,255,.22) 4px,transparent 4px,transparent 12px);background-size:12px 1.5px;animation:sepGo 2s linear infinite;flex-shrink:0}
-@keyframes sepGo{to{background-position:12px 0}}
-main{flex:1;display:grid;grid-template-columns:360px 1fr;min-height:0}
-.left{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
-.email-box{padding:28px 28px 24px}
-.email-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-.email-address{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border2);padding:12px 14px;margin-bottom:14px;}
-.email-text{font-family:'DM Mono',monospace;font-size:.8rem;color:var(--white);letter-spacing:.04em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.email-text.loading{color:var(--muted);animation:blink 1.4s ease-in-out infinite}
-@keyframes blink{0%,100%{opacity:.4}50%{opacity:1}}
-.icon-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.35);padding:4px;display:flex;align-items:center;justify-content:center;transition:color .2s;flex-shrink:0}
-.icon-btn:hover{color:var(--white)}
-.icon-btn svg{width:14px;height:14px}
-.email-actions{display:flex;gap:8px}
-.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text);background:none;border:1px solid var(--border2);padding:9px 12px;cursor:pointer;transition:border-color .25s,background .25s,color .25s;white-space:nowrap;}
-.btn:hover{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.04);color:var(--white)}
-.btn:disabled{opacity:.3;cursor:not-allowed}
-.btn svg{width:12px;height:12px;flex-shrink:0}
-.btn.primary{border-color:rgba(255,255,255,.25);color:var(--white)}
-.btn.danger{border-color:rgba(255,100,100,.3);color:rgba(255,120,120,.8)}
-.btn.danger:hover{border-color:rgba(255,100,100,.6);background:rgba(255,60,60,.06);color:var(--red)}
-.status-row{display:flex;align-items:center;gap:8px;padding:0 28px 20px}
-.status-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0;transition:background .3s}
-.status-dot.live{background:var(--green);box-shadow:0 0 6px rgba(120,220,140,.5);animation:pulse 2s ease-in-out infinite}
-.status-dot.error{background:var(--red)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.status-text{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.inbox-header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px 12px;border-top:1px solid var(--border)}
-.inbox-title{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-.inbox-count{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.1em;color:rgba(255,255,255,.25);background:rgba(255,255,255,.06);padding:2px 8px}
-.inbox-list{flex:1;overflow-y:auto;min-height:0}
-.msg-item{display:flex;flex-direction:column;gap:4px;padding:14px 28px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s;position:relative}
-.msg-item:hover{background:rgba(255,255,255,.03)}
-.msg-item.active{background:rgba(255,255,255,.05)}
-.msg-item.unread::before{content:'';position:absolute;left:12px;top:50%;transform:translateY(-50%);width:3px;height:3px;border-radius:50%;background:var(--white)}
-.msg-from{font-size:.8rem;font-weight:600;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.msg-time{font-family:'DM Mono',monospace;font-size:.56rem;color:rgba(255,255,255,.22);flex-shrink:0}
-.msg-subject{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.msg-preview{font-family:'DM Mono',monospace;font-size:.62rem;color:rgba(255,255,255,.2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:300}
-.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 28px;text-align:center}
-.empty-icon{color:rgba(255,255,255,.06);margin-bottom:4px}
-.empty-title{font-size:.85rem;font-weight:600;color:rgba(255,255,255,.15);text-transform:uppercase;letter-spacing:.1em}
-.empty-sub{font-family:'DM Mono',monospace;font-size:.63rem;color:rgba(255,255,255,.1);line-height:1.7;max-width:220px}
-.right{display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.viewer-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.viewer-empty-icon{color:rgba(255,255,255,.04)}
-.viewer-empty-text{font-size:clamp(1.2rem,2vw,2rem);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.06)}
-.viewer-empty-sub{font-family:'DM Mono',monospace;font-size:.66rem;color:rgba(255,255,255,.1);letter-spacing:.12em;text-transform:uppercase}
-.viewer-meta{padding:24px 36px 20px;border-bottom:1px solid var(--border);flex-shrink:0}
-.viewer-subject{font-size:1.3rem;font-weight:700;color:var(--white);letter-spacing:-.01em;margin-bottom:12px;line-height:1.2}
-.viewer-info{display:flex;flex-wrap:wrap;gap:18px}
-.viewer-field{display:flex;gap:8px;align-items:baseline}
-.viewer-field-label{font-family:'DM Mono',monospace;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.22);flex-shrink:0}
-.viewer-field-val{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);word-break:break-all}
-.viewer-actions{display:flex;align-items:center;gap:10px;padding:12px 36px;border-bottom:1px solid var(--border);flex-shrink:0}
-.viewer-body{flex:1;overflow-y:auto;padding:30px 36px}
-.viewer-text{font-family:'DM Mono',monospace;font-size:.8rem;line-height:1.9;color:var(--muted);font-weight:300;white-space:pre-wrap;word-break:break-word}
-.otp-banner{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.04);border:1px solid var(--border2);padding:14px 18px;margin-bottom:20px;flex-wrap:wrap}
-.otp-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-.otp-code{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:400;color:var(--white);letter-spacing:.3em}
-.otp-copy{margin-left:auto;flex:0 0 auto}
-.toast{position:fixed;bottom:28px;right:28px;z-index:9999;font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.1em;color:var(--white);background:rgba(20,20,20,0.96);border:1px solid var(--border2);padding:11px 18px;transform:translateY(8px);opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;}
-.toast.show{opacity:1;transform:translateY(0)}
-footer{display:flex;align-items:center;justify-content:space-between;padding:16px 44px;border-top:1px solid var(--border);flex-shrink:0}
-.ft-brand{font-size:.8rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.1)}
-.ft-links{display:flex;gap:16px}
-.ft-link{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.14);text-decoration:none;transition:color .2s}
-.ft-link:hover{color:rgba(255,255,255,.45)}
-.ft-meta{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.1em;color:rgba(255,255,255,.12)}
-.spin{animation:spin .8s linear infinite;display:inline-block}
+
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Figtree',sans-serif;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 900px 600px at 50% -100px, rgba(79,142,247,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 400px at 80% 80%, rgba(79,142,247,0.03) 0%, transparent 60%);
+}
+
+::-webkit-scrollbar{width:2px}
+::-webkit-scrollbar-thumb{background:rgba(79,142,247,0.2);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+
+#app{
+  position:relative;z-index:1;
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;
+}
+
+header{
+  width:100%;max-width:1080px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 32px;
+  position:sticky;top:0;z-index:100;
+}
+header::before{
+  content:'';position:absolute;inset:0;
+  background:rgba(7,9,13,0.75);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  z-index:-1;
+}
+
+.brand{display:flex;align-items:center;gap:10px;user-select:none;cursor:default}
+.brand-mark{
+  width:30px;height:30px;border-radius:9px;
+  background:linear-gradient(145deg,rgba(79,142,247,0.18),rgba(79,142,247,0.04));
+  border:1px solid rgba(79,142,247,0.22);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 18px rgba(79,142,247,0.12), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+.brand-mark svg{width:14px;height:14px;color:var(--accent)}
+.brand-name{font-size:.9rem;font-weight:700;letter-spacing:.08em;color:var(--white)}
+.brand-pill{
+  font-family:'IBM Plex Mono',monospace;font-size:.55rem;letter-spacing:.1em;
+  text-transform:uppercase;color:rgba(79,142,247,0.6);
+  background:rgba(79,142,247,0.07);
+  border:1px solid rgba(79,142,247,0.14);
+  padding:3px 8px;border-radius:20px;
+}
+.timer-chip{
+  font-family:'IBM Plex Mono',monospace;font-size:.63rem;letter-spacing:.06em;
+  color:var(--muted);
+  background:var(--card);
+  border:1px solid var(--border);
+  padding:5px 12px;border-radius:20px;
+  min-width:64px;text-align:center;
+  transition:color .3s;
+}
+
+.wrapper{
+  width:100%;max-width:1080px;
+  flex:1;
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:0;
+  padding:28px 32px;
+  min-height:0;
+  align-items:start;
+}
+
+.left{
+  display:flex;flex-direction:column;gap:12px;
+  position:sticky;top:80px;
+}
+
+.addr-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  overflow:hidden;
+  box-shadow:0 2px 24px rgba(0,0,0,0.3);
+  transition:box-shadow .3s;
+}
+.addr-card:hover{box-shadow:0 4px 32px rgba(0,0,0,0.4),0 0 40px rgba(79,142,247,0.04)}
+
+.addr-inner{padding:18px}
+.addr-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:10px;
+}
+
+.addr-field{
+  display:flex;align-items:center;gap:8px;
+  background:var(--shell);
+  border:1px solid var(--border);
+  border-radius:var(--r-sm);
+  padding:9px 12px;
+  margin-bottom:12px;
+  transition:border-color .2s;
+}
+.addr-field:hover{border-color:var(--border-lit)}
+
+.addr-text{
+  font-family:'IBM Plex Mono',monospace;font-size:.7rem;
+  color:var(--white);letter-spacing:.03em;
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.addr-text.loading{color:var(--muted);animation:fade 1.6s ease-in-out infinite}
+@keyframes fade{0%,100%{opacity:.3}50%{opacity:.8}}
+
+.copy-btn{
+  background:none;border:none;cursor:pointer;
+  color:var(--muted);padding:3px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:5px;transition:color .2s,background .2s;flex-shrink:0;
+}
+.copy-btn:hover{color:var(--accent);background:var(--accent-soft)}
+.copy-btn svg{width:13px;height:13px}
+
+.addr-btns{display:flex;gap:6px}
+.btn{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:5px;
+  font-family:'IBM Plex Mono',monospace;font-size:.58rem;letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--muted);
+  background:var(--shell);
+  border:1px solid var(--border);
+  padding:8px 10px;border-radius:var(--r-sm);
+  cursor:pointer;transition:all .18s;white-space:nowrap;
+}
+.btn:hover{border-color:var(--border-lit);color:var(--white);background:var(--card-hover)}
+.btn:disabled{opacity:.28;cursor:not-allowed;pointer-events:none}
+.btn svg{width:11px;height:11px;flex-shrink:0}
+
+.btn.accent{
+  color:var(--accent);border-color:rgba(79,142,247,0.2);background:var(--accent-soft);
+}
+.btn.accent:hover{
+  border-color:rgba(79,142,247,0.4);background:var(--accent-glow);
+  box-shadow:0 0 16px rgba(79,142,247,0.12);
+}
+.btn.red{color:var(--red);border-color:rgba(247,95,108,0.15);background:var(--red-soft)}
+.btn.red:hover{border-color:rgba(247,95,108,0.35);background:rgba(247,95,108,0.13)}
+
+.status-card{
+  display:flex;align-items:center;gap:9px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:11px 14px;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.1);flex-shrink:0;transition:all .4s}
+.dot.live{background:var(--green);box-shadow:0 0 10px rgba(52,216,124,0.55);animation:glow 2.5s ease-in-out infinite}
+.dot.err{background:var(--red);box-shadow:0 0 8px rgba(247,95,108,0.5)}
+@keyframes glow{0%,100%{box-shadow:0 0 10px rgba(52,216,124,0.55)}50%{box-shadow:0 0 4px rgba(52,216,124,0.2)}}
+.status-text{font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:.08em;color:var(--muted)}
+
+.inbox-card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+}
+.inbox-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+}
+.inbox-title{font-size:.72rem;font-weight:600;color:var(--white);letter-spacing:.02em}
+.inbox-badge{
+  font-family:'IBM Plex Mono',monospace;font-size:.55rem;
+  color:var(--accent);background:var(--accent-soft);
+  border:1px solid rgba(79,142,247,0.15);
+  padding:2px 8px;border-radius:20px;
+}
+
+.inbox-scroll{max-height:420px;overflow-y:auto}
+
+.msg-row{
+  display:flex;flex-direction:column;gap:3px;
+  padding:11px 16px;
+  border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .15s;position:relative;
+}
+.msg-row:last-child{border-bottom:none}
+.msg-row:hover{background:var(--card)}
+.msg-row.active{
+  background:var(--accent-soft);
+  border-left:2px solid var(--accent);
+  padding-left:14px;
+}
+.msg-row.unread::after{
+  content:'';position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  width:5px;height:5px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 6px var(--accent);
+}
+.msg-sender{
+  font-size:.75rem;font-weight:600;color:var(--white);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.msg-age{font-family:'IBM Plex Mono',monospace;font-size:.53rem;color:var(--muted);flex-shrink:0}
+.msg-subj{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-snip{font-family:'IBM Plex Mono',monospace;font-size:.57rem;color:rgba(77,98,120,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;padding:36px 20px;text-align:center;
+}
+.empty-icon{color:rgba(79,142,247,0.07);margin-bottom:2px}
+.empty-title{font-size:.72rem;font-weight:500;color:rgba(255,255,255,0.1);letter-spacing:.06em}
+.empty-sub{font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:rgba(255,255,255,0.06);line-height:1.8}
+
+.right{
+  padding-left:20px;
+  display:flex;flex-direction:column;
+  min-height:600px;
+}
+
+.viewer-shell{
+  flex:1;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+  display:flex;flex-direction:column;
+  box-shadow:0 2px 32px rgba(0,0,0,0.25);
+}
+
+.viewer-blank{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;
+}
+.viewer-blank-icon{color:rgba(79,142,247,0.06);margin-bottom:6px}
+.viewer-blank-title{font-size:1.1rem;font-weight:600;color:rgba(255,255,255,0.06);letter-spacing:.04em}
+.viewer-blank-sub{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:rgba(255,255,255,0.05);letter-spacing:.1em;text-transform:uppercase}
+
+.viewer-meta{
+  padding:20px 24px 16px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.viewer-subj{font-size:1rem;font-weight:600;color:var(--white);margin-bottom:10px;line-height:1.35}
+.viewer-fields{display:flex;flex-wrap:wrap;gap:14px}
+.vf{display:flex;gap:7px;align-items:baseline}
+.vf-label{font-family:'IBM Plex Mono',monospace;font-size:.53rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+.vf-val{font-family:'IBM Plex Mono',monospace;font-size:.63rem;color:var(--text);word-break:break-all}
+
+.viewer-bar{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 24px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+
+.viewer-body{flex:1;overflow-y:auto;padding:22px 24px}
+.viewer-text{
+  font-family:'IBM Plex Mono',monospace;font-size:.75rem;
+  line-height:1.95;color:var(--text);font-weight:300;
+  white-space:pre-wrap;word-break:break-word;
+}
+
+.otp-box{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--green-soft);
+  border:1px solid rgba(52,216,124,0.18);
+  border-radius:var(--r-sm);padding:12px 16px;margin-bottom:18px;
+  box-shadow:0 0 24px rgba(52,216,124,0.04);
+}
+.otp-label{font-family:'IBM Plex Mono',monospace;font-size:.54rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green)}
+.otp-code{font-family:'IBM Plex Mono',monospace;font-size:1.25rem;font-weight:500;color:var(--white);letter-spacing:.28em;text-shadow:0 0 22px rgba(52,216,124,0.3)}
+.otp-btn{margin-left:auto;flex:0 0 auto}
+
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(6px);
+  z-index:9999;
+  font-family:'IBM Plex Mono',monospace;font-size:.63rem;letter-spacing:.06em;
+  color:var(--white);
+  background:var(--card);
+  border:1px solid var(--border-lit);
+  padding:9px 18px;border-radius:20px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5),0 0 20px rgba(79,142,247,0.08);
+  opacity:0;transition:opacity .22s,transform .22s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+footer{
+  width:100%;max-width:1080px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 32px;
+  border-top:1px solid var(--border);
+}
+.ft-brand{font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.07)}
+.ft-links{display:flex;gap:18px}
+.ft-link{
+  font-family:'IBM Plex Mono',monospace;font-size:.57rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+  text-decoration:none;transition:color .2s;
+  background:none;border:none;cursor:pointer;padding:0;font:inherit;
+}
+.ft-link:hover{color:var(--accent)}
+.ft-copy{font-family:'IBM Plex Mono',monospace;font-size:.55rem;letter-spacing:.07em;color:rgba(255,255,255,0.09)}
+
+.spin{animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:780px){
-  header{padding:16px 18px}
-  main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-  .left{border-right:none;border-bottom:1px solid var(--border);max-height:55vh}
-  footer{padding:14px 18px;flex-direction:column;gap:8px;text-align:center}
-  .viewer-meta{padding:18px}
-  .viewer-body{padding:18px}
-  .viewer-actions{padding:10px 18px}
+
+@media(max-width:760px){
+  header{padding:14px 18px}
+  .wrapper{grid-template-columns:1fr;padding:18px;gap:16px}
+  .left{position:static}
+  .right{padding-left:0;min-height:400px}
+  footer{padding:12px 18px;flex-direction:column;gap:8px;text-align:center}
 }
 </style>
 </head>
 <body>
 <div id="app">
+
 <header>
   <div class="brand">
-    <div class="brand-name">OX<span>I</span>UM</div>
-    <div class="brand-tag">Temp Mail</div>
+    <div class="brand-mark">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M2 5.5L8 10l6-4.5"/></svg>
+    </div>
+    <div class="brand-name">Oxium</div>
+    <div class="brand-pill">Temp Mail</div>
   </div>
-  <div class="header-right">
-    <span class="header-badge" id="hdr-timer"></span>
-  </div>
+  <div class="timer-chip" id="hdr-timer">&nbsp;</div>
 </header>
-<div class="sep"></div>
-<main>
+
+<div class="wrapper">
   <div class="left">
-    <div class="email-box">
-      <p class="email-label">// Your disposable address</p>
-      <div class="email-address">
-        <span class="email-text loading" id="email-display">Generating address…</span>
-        <button class="icon-btn" id="copy-btn" title="Copy address">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
-        </button>
-      </div>
-      <div class="email-actions">
-        <button class="btn primary" id="refresh-btn" disabled>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg>
-          Refresh
-        </button>
-        <button class="btn" id="new-btn" disabled>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
-          New Address
-        </button>
-        <button class="btn danger" id="nuke-btn" disabled>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
-          Nuke
-        </button>
-      </div>
-    </div>
-    <div class="status-row">
-      <div class="status-dot" id="status-dot"></div>
-      <span class="status-text" id="status-text">Initializing…</span>
-    </div>
-    <div class="sep"></div>
-    <div class="inbox-header">
-      <span class="inbox-title">// Inbox</span>
-      <span class="inbox-count" id="inbox-count">0 messages</span>
-    </div>
-    <div class="inbox-list" id="inbox-list">
-      <div class="empty-state" id="empty-state">
-        <svg class="empty-icon" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8"/><path d="M3 6l9 7 9-7"/></svg>
-        <div class="empty-title">No messages yet</div>
-        <div class="empty-sub">Use the address above to receive emails. They'll appear here instantly.</div>
-      </div>
-    </div>
-  </div>
-  <div class="right">
-    <div class="viewer-empty" id="viewer-empty">
-      <svg class="viewer-empty-icon" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.6"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8l9 6 9-6z"/><path d="M3 8l9-4 9 4"/></svg>
-      <div class="viewer-empty-text">Select a message</div>
-      <div class="viewer-empty-sub">// Choose from inbox</div>
-    </div>
-    <div id="viewer-content" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-      <div class="viewer-meta">
-        <div class="viewer-subject" id="viewer-subject"></div>
-        <div class="viewer-info">
-          <div class="viewer-field"><span class="viewer-field-label">From</span><span class="viewer-field-val" id="viewer-from"></span></div>
-          <div class="viewer-field"><span class="viewer-field-label">To</span><span class="viewer-field-val" id="viewer-to"></span></div>
-          <div class="viewer-field"><span class="viewer-field-label">Date</span><span class="viewer-field-val" id="viewer-date"></span></div>
+    <div class="addr-card">
+      <div class="addr-inner">
+        <div class="addr-label">Your disposable address</div>
+        <div class="addr-field">
+          <span class="addr-text loading" id="email-display">Generating…</span>
+          <button class="copy-btn" id="copy-btn" title="Copy">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
+          </button>
+        </div>
+        <div class="addr-btns">
+          <button class="btn accent" id="refresh-btn" disabled>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg>
+            Refresh
+          </button>
+          <button class="btn" id="new-btn" disabled>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+            New
+          </button>
+          <button class="btn red" id="nuke-btn" disabled>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
+            Nuke
+          </button>
         </div>
       </div>
-      <div class="viewer-actions">
-        <button class="btn danger" id="del-msg-btn" style="flex:0 0 auto;width:auto">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
-          Delete
-        </button>
-        <button class="btn" id="raw-btn" style="flex:0 0 auto;width:auto">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 6l-3 3 3 3M11 6l3 3-3 3M9 4l-2 8"/></svg>
-          Raw
-        </button>
+    </div>
+
+    <div class="status-card">
+      <div class="dot" id="status-dot"></div>
+      <span class="status-text" id="status-text">Initializing…</span>
+    </div>
+
+    <div class="inbox-card">
+      <div class="inbox-head">
+        <span class="inbox-title">Inbox</span>
+        <span class="inbox-badge" id="inbox-count">0</span>
       </div>
-      <div class="viewer-body" id="viewer-body"></div>
+      <div class="inbox-scroll" id="inbox-list">
+        <div class="empty">
+          <svg class="empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8"/><path d="M3 6l9 7 9-7"/></svg>
+          <div class="empty-title">No messages yet</div>
+          <div class="empty-sub">Emails appear here instantly.</div>
+        </div>
+      </div>
     </div>
   </div>
-</main>
-<div class="sep"></div>
+
+  <div class="right">
+    <div class="viewer-shell">
+      <div class="viewer-blank" id="viewer-empty">
+        <svg class="viewer-blank-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.6"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8l9 6 9-6z"/><path d="M3 8l9-4 9 4"/></svg>
+        <div class="viewer-blank-title">No message selected</div>
+        <div class="viewer-blank-sub">Choose from inbox</div>
+      </div>
+      <div id="viewer-content" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+        <div class="viewer-meta">
+          <div class="viewer-subj" id="viewer-subject"></div>
+          <div class="viewer-fields">
+            <div class="vf"><span class="vf-label">From</span><span class="vf-val" id="viewer-from"></span></div>
+            <div class="vf"><span class="vf-label">To</span><span class="vf-val" id="viewer-to"></span></div>
+            <div class="vf"><span class="vf-label">Date</span><span class="vf-val" id="viewer-date"></span></div>
+          </div>
+        </div>
+        <div class="viewer-bar">
+          <button class="btn red" id="del-msg-btn" style="flex:0 0 auto;width:auto">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
+            Delete
+          </button>
+          <button class="btn" id="raw-btn" style="flex:0 0 auto;width:auto">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 6l-3 3 3 3M11 6l3 3-3 3M9 4l-2 8"/></svg>
+            Raw
+          </button>
+        </div>
+        <div class="viewer-body" id="viewer-body"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <footer>
   <div class="ft-brand">Oxium</div>
   <div class="ft-links">
     <a href="https://github.com/templateo/oxium" class="ft-link" target="_blank">GitHub</a>
-    <a href="https://api.mail.tm" class="ft-link" target="_blank">API</a>
+    <button class="ft-link" onclick="window.location.href='mailto:contact@oxium.site'">Contact</button>
   </div>
-  <div class="ft-meta">Open Source · Powered by mail.tm</div>
+  <div class="ft-copy">© 2025 Oxium</div>
 </footer>
 </div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-/* ═══════════════════════════════════════════════════════════
-   OXIUM — mail.tm via Netlify Function proxy (/api/*)
-   
-   Requests go: browser → /api/* → netlify/functions/proxy.js → mail.tm
-   No CORS issues because the function runs server-side.
-═══════════════════════════════════════════════════════════ */
+const API='/api';
+let state={address:null,password:null,token:null,accountId:null,messages:[],activeMsg:null,pollInterval:null,expiryTimer:null,refreshing:false};
 
-// All API calls go to /api/ — Netlify routes this to the function
-const API = '/api';
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function timeAgo(d){const s=Math.floor((Date.now()-new Date(d))/1000);if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return new Date(d).toLocaleDateString();}
+function formatDate(d){return new Date(d).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+let _tt;function toast(msg,dur=2200){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),dur);}
+function setStatus(t,msg){document.getElementById('status-dot').className='dot'+(t==='live'?' live':t==='err'?' err':'');document.getElementById('status-text').textContent=msg;}
+function setBtns(on){['refresh-btn','new-btn','nuke-btn'].forEach(id=>document.getElementById(id).disabled=!on);}
 
-let state = {
-  address: null, password: null, token: null, accountId: null,
-  messages: [], activeMsg: null,
-  pollInterval: null, expiryTimer: null, refreshing: false,
-};
-
-function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function timeAgo(d){ const s=Math.floor((Date.now()-new Date(d))/1000); if(s<60)return s+'s ago'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; return new Date(d).toLocaleDateString(); }
-function formatDate(d){ return new Date(d).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
-let _tt; function toast(msg,dur=2400){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),dur); }
-function setStatus(t,msg){ document.getElementById('status-dot').className='status-dot'+(t==='live'?' live':t==='error'?' error':''); document.getElementById('status-text').textContent=msg; }
-function setBtns(on){ ['refresh-btn','new-btn','nuke-btn'].forEach(id=>document.getElementById(id).disabled=!on); }
 function startExpiryTimer(ms){
-  if(state.expiryTimer) clearInterval(state.expiryTimer);
-  const end=Date.now()+ms; const hdr=document.getElementById('hdr-timer');
-  function tick(){ const r=Math.max(0,end-Date.now()); const m=Math.floor(r/60000),s=Math.floor((r%60000)/1000); hdr.textContent=`Expires ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; if(!r){clearInterval(state.expiryTimer);hdr.textContent='Expired';} }
-  tick(); state.expiryTimer=setInterval(tick,1000);
+  if(state.expiryTimer)clearInterval(state.expiryTimer);
+  const end=Date.now()+ms;const el=document.getElementById('hdr-timer');
+  function tick(){const r=Math.max(0,end-Date.now());const m=Math.floor(r/60000),s=Math.floor((r%60000)/1000);el.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;if(!r){clearInterval(state.expiryTimer);el.textContent='Expired';}}
+  tick();state.expiryTimer=setInterval(tick,1000);
 }
 
-async function apiFetch(path, opts={}){
+async function apiFetch(path,opts={}){
   const headers={'Content-Type':'application/json','Accept':'application/json',...(opts.headers||{})};
-  if(state.token && !opts.noAuth) headers['Authorization']='Bearer '+state.token;
-  const r = await fetch(API+path, {...opts, headers});
-  if(!r.ok){ let e; try{e=await r.json();}catch{e={status:r.status};} throw Object.assign(new Error(e['hydra:description']||e.message||'HTTP '+r.status),e); }
-  if(r.status===204) return null;
+  if(state.token&&!opts.noAuth)headers['Authorization']='Bearer '+state.token;
+  const r=await fetch(API+path,{...opts,headers});
+  if(!r.ok){let e;try{e=await r.json();}catch{e={status:r.status};}throw Object.assign(new Error(e['hydra:description']||e.message||'HTTP '+r.status),e);}
+  if(r.status===204)return null;
   return r.json();
 }
 
 const adj=['soft','tiny','lucky','fuzzy','lazy','chill','sleepy','bold','zesty','crisp','wild','misty','salty','funky','vivid','dusty','fluffy','grumpy','jolly','witty'];
 const nouns=['frog','duck','bean','sock','lamp','mug','rock','leaf','twig','rain','wave','spark','bloom','drift','stone','pond','grove','shade','burst','crab'];
 function rnd(a){return a[Math.floor(Math.random()*a.length)];}
-function genUser(){ const s=Math.floor(Math.random()*3); if(s===0)return rnd(adj)+rnd(nouns); if(s===1)return rnd(nouns)+Math.floor(Math.random()*90+10); return rnd(adj)+rnd(nouns)+Math.floor(Math.random()*9+1); }
-
-function extractOTP(t){ if(!t)return null; for(const p of[/\b(\d{6})\b/,/\b(\d{4})\b/,/\b(\d{5})\b/,/(?:code|otp|verification)[:\s]+([A-Z0-9]{4,8})/i]){const m=t.match(p);if(m)return m[1]||m[0].replace(/\D/g,'');} return null; }
-function showViewerEmpty(){ document.getElementById('viewer-content').style.display='none'; document.getElementById('viewer-empty').style.display='flex'; }
-function stopPolling(){ if(state.pollInterval){clearInterval(state.pollInterval);state.pollInterval=null;} }
-function startPolling(){ stopPolling(); fetchMessages(); state.pollInterval=setInterval(fetchMessages,10000); }
+function genUser(){const s=Math.floor(Math.random()*3);if(s===0)return rnd(adj)+rnd(nouns);if(s===1)return rnd(nouns)+Math.floor(Math.random()*90+10);return rnd(adj)+rnd(nouns)+Math.floor(Math.random()*9+1);}
+function extractOTP(t){if(!t)return null;for(const p of[/\b(\d{6})\b/,/\b(\d{4})\b/,/\b(\d{5})\b/,/(?:code|otp|verification)[:\s]+([A-Z0-9]{4,8})/i]){const m=t.match(p);if(m)return m[1]||m[0].replace(/\D/g,'');}return null;}
+function showBlank(){document.getElementById('viewer-content').style.display='none';document.getElementById('viewer-empty').style.display='flex';}
+function stopPoll(){if(state.pollInterval){clearInterval(state.pollInterval);state.pollInterval=null;}}
+function startPoll(){stopPoll();fetchMsgs();state.pollInterval=setInterval(fetchMsgs,10000);}
 
 async function createAccount(){
-  setStatus('','Creating address…');
+  setStatus('','Creating…');
   const disp=document.getElementById('email-display');
-  disp.textContent='Generating…'; disp.classList.add('loading');
+  disp.textContent='Generating…';disp.classList.add('loading');
   setBtns(false);
-
-  try {
+  try{
     const domain=(await apiFetch('/domains?page=1',{noAuth:true}))['hydra:member']?.[0]?.domain;
-    if(!domain) throw new Error('No domains available');
-
-    const user=genUser(), address=`${user}@${domain}`, password=Math.random().toString(36).slice(2,10)+'!Ox9';
-
+    if(!domain)throw new Error('No domains available');
+    const user=genUser(),address=`${user}@${domain}`,password=Math.random().toString(36).slice(2,10)+'!Ox9';
     const acct=await apiFetch('/accounts',{method:'POST',noAuth:true,body:JSON.stringify({address,password})});
     const tok=await apiFetch('/token',{method:'POST',noAuth:true,body:JSON.stringify({address,password})});
-
-    state.address=address; state.password=password; state.token=tok.token;
-    state.accountId=acct.id; state.messages=[]; state.activeMsg=null;
-
-    disp.textContent=address; disp.classList.remove('loading');
+    state.address=address;state.password=password;state.token=tok.token;
+    state.accountId=acct.id;state.messages=[];state.activeMsg=null;
+    disp.textContent=address;disp.classList.remove('loading');
     document.getElementById('copy-btn').onclick=()=>navigator.clipboard.writeText(address).then(()=>toast('Copied!'));
     setBtns(true);
-    setStatus('live','Receiving mail · Auto-refresh every 10s');
+    setStatus('live','Live · refreshes every 10s');
     startExpiryTimer(60*60*1000);
-    renderInbox([]); showViewerEmpty(); startPolling();
-
-  } catch(e) {
-    disp.textContent='Failed'; disp.classList.remove('loading');
-    setStatus('error',e.message);
-    toast('Error: '+e.message, 5000);
+    renderInbox([]);showBlank();startPoll();
+  }catch(e){
+    disp.textContent='Failed';disp.classList.remove('loading');
+    setStatus('err',e.message);toast('Error: '+e.message,5000);
     document.getElementById('new-btn').disabled=false;
   }
 }
 
-async function fetchMessages(){
-  if(!state.token) return;
-  try {
+async function fetchMsgs(){
+  if(!state.token)return;
+  try{
     const data=await apiFetch('/messages?page=1');
     const msgs=data['hydra:member']||[];
     const prev=state.messages.length;
-    state.messages=msgs;
-    renderInbox(msgs);
-    if(msgs.length>prev && prev>=0){ const d=msgs.length-prev; if(d>0&&prev>0) toast(`${d} new message${d>1?'s':''}!`); }
-  } catch(e){ if(e.status===401){setStatus('error','Session expired');stopPolling();} }
+    state.messages=msgs;renderInbox(msgs);
+    if(msgs.length>prev&&prev>=0){const d=msgs.length-prev;if(d>0&&prev>0)toast(`${d} new message${d>1?'s':''}!`);}
+  }catch(e){if(e.status===401){setStatus('err','Session expired');stopPoll();}}
 }
 
 function renderInbox(msgs){
   const list=document.getElementById('inbox-list');
-  document.getElementById('inbox-count').textContent=msgs.length+' message'+(msgs.length!==1?'s':'');
-  if(!msgs.length){ list.innerHTML='<div class="empty-state"><svg class="empty-icon" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8"/><path d="M3 6l9 7 9-7"/></svg><div class="empty-title">No messages yet</div><div class="empty-sub">Use the address above to receive emails.</div></div>'; return; }
+  document.getElementById('inbox-count').textContent=msgs.length;
+  if(!msgs.length){
+    list.innerHTML='<div class="empty"><svg class="empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 8V18a2 2 0 01-2 2H5a2 2 0 01-2-2V8"/><path d="M3 6l9 7 9-7"/></svg><div class="empty-title">No messages yet</div><div class="empty-sub">Emails appear here instantly.</div></div>';
+    return;
+  }
   const sorted=[...msgs].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   list.innerHTML=sorted.map(m=>`
-    <div class="msg-item${m.seen?'':' unread'}${state.activeMsg===m.id?' active':''}" onclick="openMessage('${m.id}')" data-id="${m.id}">
-      <div class="msg-from"><span>${escHtml(m.from?.name||m.from?.address||'Unknown')}</span><span class="msg-time">${timeAgo(m.createdAt)}</span></div>
-      <div class="msg-subject">${escHtml(m.subject||'(no subject)')}</div>
-      <div class="msg-preview">${escHtml(m.intro||'')}</div>
+    <div class="msg-row${m.seen?'':' unread'}${state.activeMsg===m.id?' active':''}" onclick="openMsg('${m.id}')" data-id="${m.id}">
+      <div class="msg-sender"><span>${escHtml(m.from?.name||m.from?.address||'Unknown')}</span><span class="msg-age">${timeAgo(m.createdAt)}</span></div>
+      <div class="msg-subj">${escHtml(m.subject||'(no subject)')}</div>
+      <div class="msg-snip">${escHtml(m.intro||'')}</div>
     </div>`).join('');
 }
 
-async function openMessage(id){
+async function openMsg(id){
   state.activeMsg=id;
-  document.querySelectorAll('.msg-item').forEach(el=>el.classList.toggle('active',el.dataset.id===id));
+  document.querySelectorAll('.msg-row').forEach(el=>el.classList.toggle('active',el.dataset.id===id));
   document.getElementById('viewer-content').style.display='flex';
   document.getElementById('viewer-empty').style.display='none';
-  const bodyEl=document.getElementById('viewer-body');
-  bodyEl.innerHTML='<div class="viewer-text" style="opacity:.4">Loading…</div>';
-  try {
+  const body=document.getElementById('viewer-body');
+  body.innerHTML='<div class="viewer-text" style="opacity:.3">Loading…</div>';
+  try{
     const msg=await apiFetch('/messages/'+id);
     document.getElementById('viewer-subject').textContent=msg.subject||'(no subject)';
     document.getElementById('viewer-from').textContent=msg.from?.address||'Unknown';
     document.getElementById('viewer-to').textContent=(msg.to||[]).map(t=>t.address).join(', ')||state.address||'';
     document.getElementById('viewer-date').textContent=formatDate(msg.createdAt);
-    bodyEl.innerHTML='';
+    body.innerHTML='';
     const plain=msg.text||'';
     const otp=extractOTP(plain);
-    if(otp){ const b=document.createElement('div'); b.className='otp-banner'; b.innerHTML=`<span class="otp-label">// Code detected</span><span class="otp-code">${escHtml(otp)}</span><button class="btn otp-copy" onclick="navigator.clipboard.writeText('${otp.replace(/'/g,"\\'")}').then(()=>toast('Copied!'))"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg> Copy</button>`; bodyEl.appendChild(b); }
+    if(otp){const b=document.createElement('div');b.className='otp-box';b.innerHTML=`<span class="otp-label">Code detected</span><span class="otp-code">${escHtml(otp)}</span><button class="btn otp-btn" onclick="navigator.clipboard.writeText('${otp.replace(/'/g,"\\'")}').then(()=>toast('Copied!'))"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="11" height="11"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg> Copy</button>`;body.appendChild(b);}
     if(msg.html?.length){
-      const blob=new Blob([msg.html[0]],{type:'text/html'}); const url=URL.createObjectURL(blob);
-      const iframe=document.createElement('iframe'); iframe.src=url;
-      iframe.style.cssText='width:100%;border:none;min-height:400px;display:block;background:#fff';
-      iframe.onload=()=>{ try{iframe.style.height=(iframe.contentDocument.documentElement.scrollHeight+20)+'px';}catch{} URL.revokeObjectURL(url); };
-      bodyEl.appendChild(iframe);
-    } else { const pre=document.createElement('div'); pre.className='viewer-text'; pre.textContent=plain||'(empty)'; bodyEl.appendChild(pre); }
-    const local=state.messages.find(m=>m.id===id); if(local) local.seen=true;
-    document.querySelectorAll('.msg-item').forEach(el=>{if(el.dataset.id===id)el.classList.remove('unread');});
-    document.getElementById('del-msg-btn').onclick=()=>deleteMessage(id);
-    document.getElementById('raw-btn').onclick=()=>{ const w=window.open('','_blank'); w.document.write('<pre style="background:#111;color:#ccc;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap">'+escHtml(JSON.stringify(msg,null,2))+'</pre>'); };
-  } catch(e){ bodyEl.innerHTML=`<div class="viewer-text" style="color:var(--red)">Failed: ${escHtml(e.message)}</div>`; }
+      const blob=new Blob([msg.html[0]],{type:'text/html'});const url=URL.createObjectURL(blob);
+      const iframe=document.createElement('iframe');iframe.src=url;
+      iframe.style.cssText='width:100%;border:none;min-height:400px;display:block;background:#fff;border-radius:8px';
+      iframe.onload=()=>{try{iframe.style.height=(iframe.contentDocument.documentElement.scrollHeight+20)+'px';}catch{}URL.revokeObjectURL(url);};
+      body.appendChild(iframe);
+    }else{const pre=document.createElement('div');pre.className='viewer-text';pre.textContent=plain||'(empty)';body.appendChild(pre);}
+    const local=state.messages.find(m=>m.id===id);if(local)local.seen=true;
+    document.querySelectorAll('.msg-row').forEach(el=>{if(el.dataset.id===id)el.classList.remove('unread');});
+    document.getElementById('del-msg-btn').onclick=()=>delMsg(id);
+    document.getElementById('raw-btn').onclick=()=>{const w=window.open('','_blank');w.document.write('<pre style="background:#0c0f16;color:#b8c5d6;padding:24px;font-family:monospace;font-size:12px;white-space:pre-wrap">'+escHtml(JSON.stringify(msg,null,2))+'</pre>');};
+  }catch(e){body.innerHTML=`<div class="viewer-text" style="color:var(--red)">Failed: ${escHtml(e.message)}</div>`;}
 }
 
-async function deleteMessage(id){
-  try{ await apiFetch('/messages/'+id,{method:'DELETE'}); state.messages=state.messages.filter(m=>m.id!==id); state.activeMsg=null; renderInbox(state.messages); showViewerEmpty(); toast('Deleted'); }
-  catch(e){ toast('Delete failed: '+e.message); }
+async function delMsg(id){
+  try{await apiFetch('/messages/'+id,{method:'DELETE'});state.messages=state.messages.filter(m=>m.id!==id);state.activeMsg=null;renderInbox(state.messages);showBlank();toast('Deleted');}
+  catch(e){toast('Delete failed: '+e.message);}
 }
 
 async function manualRefresh(){
-  if(state.refreshing)return; state.refreshing=true;
+  if(state.refreshing)return;state.refreshing=true;
   const btn=document.getElementById('refresh-btn');
-  btn.innerHTML='<svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refreshing…'; btn.disabled=true;
-  try{await fetchMessages();toast('Refreshed');}catch(e){toast('Failed');}
-  btn.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refresh'; btn.disabled=false; state.refreshing=false;
+  btn.innerHTML='<svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refreshing…';btn.disabled=true;
+  try{await fetchMsgs();toast('Refreshed');}catch(e){toast('Failed');}
+  btn.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8A5.5 5.5 0 112.5 5.5"/><path d="M2.5 2v3.5H6"/></svg> Refresh';btn.disabled=false;state.refreshing=false;
 }
 
 document.getElementById('refresh-btn').addEventListener('click',manualRefresh);
-document.getElementById('new-btn').addEventListener('click',()=>{stopPolling();createAccount();});
+document.getElementById('new-btn').addEventListener('click',()=>{stopPoll();createAccount();});
 document.getElementById('nuke-btn').addEventListener('click',()=>{
   if(!confirm('Destroy this address?'))return;
-  stopPolling(); if(state.expiryTimer)clearInterval(state.expiryTimer);
-  if(state.accountId&&state.token) apiFetch('/accounts/'+state.accountId,{method:'DELETE'}).catch(()=>{});
+  stopPoll();if(state.expiryTimer)clearInterval(state.expiryTimer);
+  if(state.accountId&&state.token)apiFetch('/accounts/'+state.accountId,{method:'DELETE'}).catch(()=>{});
   state={...state,address:null,password:null,token:null,accountId:null,messages:[],activeMsg:null};
   document.getElementById('hdr-timer').textContent='';
-  setStatus('','Nuked…'); renderInbox([]); showViewerEmpty();
+  setStatus('','Nuked…');renderInbox([]);showBlank();
   setTimeout(createAccount,400);
 });
 
